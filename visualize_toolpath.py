@@ -1,18 +1,5 @@
 #!/usr/bin/env python3
-"""
-visualize_toolpath.py
 
-Simple `.src` KRL visualizer with optional animation.
-
-Usage:
-  python visualize_toolpath.py input.src        # open interactive 3D animation (matplotlib)
-  python visualize_toolpath.py input.src --info # just print parsing summary and exit
-
-Dependencies: matplotlib
-
-The parser looks for `LIN {X ..., Y ..., Z ...}` lines and `$OUT[n] = TRUE/FALSE` torch toggles.
-LIN positions are emitted sequentially and the current torch state is applied to subsequent LINs.
-"""
 import re
 import sys
 from pathlib import Path
@@ -33,13 +20,7 @@ COORD_RE = re.compile(r'([XYZ])\s*([-+]?[0-9]*\.?[0-9]+)')
 
 
 def parse_src(path):
-    """Parse a .src file and return positions list and torch states.
 
-    Returns:
-      positions: list of (x,y,z) floats
-      torch_states: list of booleans (state associated with that LIN)
-      events: list of dicts with parsed event info for debug
-    """
     pos = []
     torch = []
     events = []
@@ -107,7 +88,6 @@ def animate_src(path, interval=50, trail=200, save_path: str = None, dpi: int = 
     ax.set_zlabel('Z')
     ax.set_title(Path(path).name)
 
-    # plot full path faintly, colored by torch state
     travel_x = [x for x, t in zip(xs, torch_states) if not t]
     travel_y = [y for y, t in zip(ys, torch_states) if not t]
     travel_z = [z for z, t in zip(zs, torch_states) if not t]
@@ -120,7 +100,7 @@ def animate_src(path, interval=50, trail=200, save_path: str = None, dpi: int = 
     if weld_x:
         ax.plot(weld_x, weld_y, weld_z, color='red', alpha=0.6, linewidth=2, label='weld')
 
-    # current point marker and trail
+
     current_point, = ax.plot([xs[0]], [ys[0]], [zs[0]], marker='o', color='k', markersize=8)
     trail_line, = ax.plot([], [], [], color='orange', linewidth=2, alpha=0.9)
 
@@ -128,7 +108,7 @@ def animate_src(path, interval=50, trail=200, save_path: str = None, dpi: int = 
 
     N = len(xs)
 
-    # autoscale view a bit
+
     pad = 10
     ax.set_xlim(min(xs)-pad, max(xs)+pad)
     ax.set_ylim(min(ys)-pad, max(ys)+pad)
@@ -149,22 +129,21 @@ def animate_src(path, interval=50, trail=200, save_path: str = None, dpi: int = 
         x = xs[idx]
         y = ys[idx]
         z = zs[idx]
-        # update marker
+        
         current_point.set_data([x], [y])
         current_point.set_3d_properties([z])
-        # draw trail of previous points
+ 
         start = max(0, idx - trail)
         trail_line.set_data(xs[start:idx+1], ys[start:idx+1])
         trail_line.set_3d_properties(zs[start:idx+1])
-        # color marker by torch state
+       
         current_point.set_color('red' if torch_states[idx] else 'blue')
         return current_point, trail_line
 
     anim = FuncAnimation(fig, update, frames=range(0, N), interval=interval, blit=False, repeat=True)
 
-    # optionally save animation
     if save_path:
-        # choose writer: prefer ffmpeg (mp4) else fall back to Pillow (gif)
+        
         try:
             writers = FuncAnimation.canvas.figure.canvas.manager.canvas.figure.canvas.manager
         except Exception:
@@ -178,7 +157,7 @@ def animate_src(path, interval=50, trail=200, save_path: str = None, dpi: int = 
             writer = animation.writers['ffmpeg'](fps=fps)
             anim.save(str(out_p), writer=writer, dpi=dpi)
         else:
-            # fallback to pillow -> GIF; ensure extension is .gif
+            # fallback 
             try:
                 if out_p.suffix.lower() != '.gif':
                     out_p = out_p.with_suffix('.gif')

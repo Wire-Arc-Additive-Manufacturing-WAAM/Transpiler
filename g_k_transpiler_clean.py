@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""
-Simplified WAAM G-code -> KRL transpiler (clean version)
-- Loads tunable parameters from `waam_config.json` in the same folder
-- Converts G1/G0 moves to KRL LIN/PTP, sets $APO.CDIS from config (smaller -> smoother)
-- Converts feed F (mm/min) -> $VEL.CP (m/s)
-- Torch ON/OFF toggles without extra delays (only inter-layer delay is preserved)
-- Produces a .src and .dat pair
 
-This script purposefully keeps behaviour simple and predictable to make tuning easy.
-"""
 import os
 import sys
 import re
@@ -210,16 +201,7 @@ class SimpleTranspiler:
             torch_output=WAAM_PARAMS.get('torch_output', 1)
         )
         k.append(header)
-        # dat
-        # simple: not writing DEFDAT here, user can call separately
-
-        # We will detect welding spans per-layer (many slicers emit E only on
-        # the end point of an extruding move). To handle that robustly, we
-        # split into layers first and then detect e-deltas inside each layer
-        # with a layer-local previous-e reset (so repeated absolute E values
-        # across layers are treated as new extrusion in the new layer).
-
-        # Organize points into layers using explicit layer-change comments
+      
         layers = []
         current_layer: List[Point] = []
         for p in self.points:
@@ -233,11 +215,7 @@ class SimpleTranspiler:
         if current_layer:
             layers.append(current_layer)
 
-        # (Do not reverse whole layers here.) We'll alternate per-segment at emit time.
-
-        # Per-layer E-based welding detection: reset prev_e at layer start so
-        # repeated absolute E values in different layers are treated as new
-        # extrusion in that layer.
+    
         for layer_points in layers:
             prev_e = 0.0
             for i_pt, pt in enumerate(layer_points):
@@ -252,7 +230,7 @@ class SimpleTranspiler:
                             prev_pt.welding = True
                 prev_e = pt.e
 
-        # If configured, compute auto prusa origin from the first welding point
+
         if WAAM_PARAMS.get('auto_prusa_origin', False):
             first_weld = None
             for p in self.points:
@@ -260,11 +238,10 @@ class SimpleTranspiler:
                     first_weld = p
                     break
             if first_weld:
-                # set instance origin to negative of first weld coordinates
+    
                 self.prusa_origin['x'] = -first_weld.x
                 self.prusa_origin['y'] = -first_weld.y
-                # leave Z alone (use configured z)
-                # add a comment in output (user-visible)
+              
                 k.append(f"; Auto prusa origin applied: x={self.prusa_origin['x']:.3f}, y={self.prusa_origin['y']:.3f}\n")
 
         torch_out = WAAM_PARAMS.get('torch_output', 1)
@@ -281,22 +258,20 @@ class SimpleTranspiler:
             k.append(f"LIN {pos} C_DIS\n")
             last_emitted_pos = pos_tuple
 
-        # Process layer by layer, emitting compact weld segments
-        # Use a global flip flag to alternate segment direction across the whole program
+      
         flip_next = False
         for layer_idx, layer_points in enumerate(layers):
-            # preserve any explicit layer-change marker at start
+       
             start_index = 0
             if layer_points and layer_points[0].raw_line and (layer_points[0].raw_line.startswith(';LAYER_CHANGE') or layer_points[0].raw_line.startswith(';Z:')):
                 k.append(f"; {layer_points[0].raw_line.strip()}\n")
                 start_index = 1
 
-            # collect welding segments within this layer (list of lists of Points)
             segments = []
             i = start_index
             n = len(layer_points)
             while i < n:
-                # skip non-weld travel
+           
                 while i < n and not layer_points[i].welding:
                     i += 1
                 if i >= n:
@@ -307,14 +282,14 @@ class SimpleTranspiler:
                 segments.append(layer_points[i:j])
                 i = j
 
-            # Emit segments sequentially. Alternate direction across segments using flip_next.
+          
             for seg in segments:
                 if not seg:
                     continue
-                # choose emitted order based on flip_next
+               
                 emitted = list(reversed(seg)) if flip_next else list(seg)
 
-                # pre-position to first point of emitted order
+            
                 emit_lin_if_needed(emitted[0])
                 # torch on
                 k.append(f"CONTINUE\n$OUT[{torch_out}] = TRUE\n")
@@ -330,7 +305,7 @@ class SimpleTranspiler:
                 # flip for next segment
                 flip_next = not flip_next
 
-        # Footer
+      
         footer = FOOTER_SRC.format(default_travel_speed=ROBOT_SPECS.get('default_travel_speed', 0.005))
         k.append(footer)
         return ''.join(k)

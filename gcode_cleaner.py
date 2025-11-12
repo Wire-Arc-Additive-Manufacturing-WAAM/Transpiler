@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""
-G-code Cleaner - Remove Duplicate Move Commands
-Cleans G-code files by removing:
-1. Duplicate consecutive positions
-2. Redundant retraction sequences
-3. Unnecessary travel moves
-4. Zero-distance moves
 
-Usage: python gcode_cleaner.py input.gcode [output.gcode]
-"""
 import sys
 import os
 import re
@@ -121,8 +112,7 @@ class GCodeCleaner:
             parsed.is_important = True
             parsed.command = 'G91'
             return parsed
-        
-        # Check for important commands (M-codes, G28, G92, etc.)
+
         if any(cmd in code_upper for cmd in ['M104', 'M109', 'M140', 'M190', 'M106', 'M107', 
                                                'M3', 'M03', 'M5', 'M05', 'M84', 'G28', 'G29']):
             parsed.is_important = True
@@ -187,14 +177,14 @@ class GCodeCleaner:
         if not line.is_move() or not prev_line.is_move():
             return False
         
-        # Check if positions are identical
+
         same_position = (
             abs((line.x or 0) - (prev_line.x or 0)) < tolerance and
             abs((line.y or 0) - (prev_line.y or 0)) < tolerance and
             abs((line.z or 0) - (prev_line.z or 0)) < tolerance
         )
         
-        # Also check if E values indicate same state (both extruding or both traveling)
+
         line_extruding = line.e is not None and line.e > 0.01
         prev_extruding = prev_line.e is not None and prev_line.e > 0.01
         same_state = line_extruding == prev_extruding
@@ -203,14 +193,14 @@ class GCodeCleaner:
     
     def is_zero_distance_move(self, line: GCodeLine, prev_line: GCodeLine, 
                              min_distance: float = 0.001) -> bool:
-        """Check if this move covers essentially zero distance"""
+       
         if not line.is_move() or not prev_line.is_move():
             return False
         
         return line.distance_to(prev_line) < min_distance
     
     def is_redundant_g92(self, line: GCodeLine, prev_line: GCodeLine) -> bool:
-        """Check if this G92 E0 is redundant (follows another G92 E0)"""
+      
         if line.command != 'G92' or prev_line.command != 'G92':
             return False
         
@@ -221,19 +211,7 @@ class GCodeCleaner:
              remove_zero_moves: bool = True,
              remove_redundant_g92: bool = True,
              min_move_distance: float = 0.001) -> List[str]:
-        """
-        Clean G-code by removing redundant commands
-        
-        Args:
-            input_lines: List of G-code lines
-            remove_duplicates: Remove duplicate consecutive positions
-            remove_zero_moves: Remove moves with zero distance
-            remove_redundant_g92: Remove consecutive G92 E0 commands
-            min_move_distance: Minimum distance for a move to be kept (mm)
-        
-        Returns:
-            List of cleaned G-code lines
-        """
+      
         self.stats['total_lines'] = len(input_lines)
         
         parsed_lines = []
@@ -248,7 +226,6 @@ class GCodeCleaner:
         for i, line in enumerate(parsed_lines):
             keep_line = True
             
-            # Always keep comments and important commands
             if line.is_comment or line.is_important:
                 if line.command == 'G92':
                     # Check for redundant G92
@@ -264,13 +241,12 @@ class GCodeCleaner:
             
             # Process movement commands
             if line.is_move():
-                # Check for duplicate position
+
                 if remove_duplicates and prev_move:
                     if self.is_duplicate_position(line, prev_move):
                         keep_line = False
                         self.stats['duplicate_positions'] += 1
                 
-                # Check for zero-distance moves
                 if keep_line and remove_zero_moves and prev_move:
                     if self.is_zero_distance_move(line, prev_move, min_move_distance):
                         keep_line = False
@@ -280,7 +256,7 @@ class GCodeCleaner:
                     cleaned_lines.append(line)
                     prev_move = line
             else:
-                # Keep all other commands
+              
                 cleaned_lines.append(line)
         
         self.stats['output_lines'] = len(cleaned_lines)
@@ -334,7 +310,7 @@ def main():
         print(f"\n ERROR: File not found: {input_file}\n")
         sys.exit(1)
     
-    # Determine output filename
+    
     if len(sys.argv) >= 3:
         output_file = sys.argv[2]
     else:
@@ -346,13 +322,11 @@ def main():
     print(f"{'='*60}")
     print(f"\nInput:  {input_file}")
     print(f"Output: {output_file}")
-    
-    # Read input file
+
     print("\nReading G-code...")
     with open(input_file, 'r') as f:
         lines = f.readlines()
-    
-    # Clean G-code
+
     print("Cleaning G-code...")
     cleaner = GCodeCleaner()
     cleaned_lines = cleaner.clean(
@@ -363,12 +337,11 @@ def main():
         min_move_distance=0.001
     )
     
-    # Write output file
+  
     print("Writing cleaned G-code...")
     with open(output_file, 'w') as f:
         f.writelines(cleaned_lines)
-    
-    # Print statistics
+
     cleaner.print_statistics()
     
     print(f"✓ Cleaned G-code saved to: {output_file}\n")
