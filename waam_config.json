@@ -1,0 +1,33 @@
+
+{
+	"robot_specs": {
+		"reach": 900,
+		"payload": 6,
+		"max_tcp_speed": 0.3,
+		"default_travel_speed": 0.005,
+		"default_weld_speed": 0.005,
+		"min_weld_speed": 0.003,
+		"max_weld_speed": 0.005
+	},
+	"prusa_origin": {"x": 0, "y":0, "z": -2},
+	"waam_params": {
+		"pre_weld_delay": 0.0,
+		"arc_strike_delay": 0.0,
+		"arc_stabilization": 0.0,
+		"arc_off_delay": 0.0,
+		"post_weld_delay": 0.0,
+		"inter_layer_delay": 10.0,
+		"layer_height": 2.0,
+		"start_speed_factor": 0.4,
+		"end_speed_factor": 0.5,
+		"ramp_distance": 5.0,
+		"max_blend_distance": 2.0,
+		"min_blend_distance": 0.1,
+		"corner_angle_threshold": 15,
+		"min_extrusion_threshold": 0.01,
+		"torch_output": 1,
+		"retraction_max_distance": 10.0,
+		"apo_cdis": 0.25,
+		"auto_prusa_origin": true
+	}
+}
