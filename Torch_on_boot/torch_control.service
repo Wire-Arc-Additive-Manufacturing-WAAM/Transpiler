@@ -1,0 +1,32 @@
+[Unit]
+Description=KUKA Torch Control Service
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi
+
+ExecStart=/usr/bin/python3 /home/pi/torch_control.py
+
+# Explicit safety shutdown command
+ExecStop=/bin/bash -c 'if [ -d /sys/class/gpio/gpio5 ]; then echo 0 > /sys/class/gpio/gpio5/value 2>/dev/null || true; fi'
+
+Restart=always
+RestartSec=10
+
+Environment="PYTHONUNBUFFERED=1"
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=torch_control
+
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
