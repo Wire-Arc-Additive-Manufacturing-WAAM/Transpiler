@@ -60,3 +60,15 @@ Use this to verify that the robot movement is smooth and collision-free.
 
 ---
 
+## **4. Toolpath Visualization (GIF)**
+
+You can embed the generated GIF preview directly in your README:
+
+```markdown
+![Toolpath Visualization](onelayercirclevideoonline-video-cutter.com-ezgif.com-video-to-gif-converter.gif)
+```
+
+Make sure the GIF is placed in the same directory as the README or update the path accordingly.
+
+---
+
