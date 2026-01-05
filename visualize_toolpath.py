@@ -8,7 +8,7 @@ import math
 
 try:
     import matplotlib.pyplot as plt
-    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+    from mpl_toolkits.mplot3d import Axes3D  
     from matplotlib.animation import FuncAnimation
 except Exception as e:
     plt = None
@@ -43,7 +43,6 @@ def parse_src(path):
                 for cm in COORD_RE.finditer(inside):
                     coords[cm.group(1).upper()] = float(cm.group(2))
                 if coords['X'] is None or coords['Y'] is None or coords['Z'] is None:
-                    # try to parse alternative formatting
                     # skip incomplete LINs
                     events.append({'type': 'lin_incomplete', 'line': l})
                     continue
@@ -51,7 +50,7 @@ def parse_src(path):
                 torch.append(bool(cur_torch))
                 events.append({'type': 'lin', 'pos': pos[-1], 'torch': torch[-1], 'line': l})
                 continue
-            # we ignore other lines
+            # ignore other lines
     return pos, torch, events
 
 
@@ -70,7 +69,7 @@ def print_info(path):
 
 def animate_src(path, interval=50, trail=200, save_path: str = None, dpi: int = 150):
     if plt is None:
-        print('matplotlib not available; install matplotlib to use animation mode')
+        print('matplotlib not available')
         return
     positions, torch_states, _ = parse_src(path)
     if not positions:

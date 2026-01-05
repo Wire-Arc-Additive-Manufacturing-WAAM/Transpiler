@@ -1,10 +1,10 @@
-
-"""Torch on issues due to motion blending solved """
+"""Torch on issues due to motion blending solved + Sinusoidal weaving for improved bead morphology"""
 
 import os
 import sys
 import re
 import json
+import math
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional, List
@@ -32,11 +32,16 @@ WAAM_PARAMS = _cfg.get('waam_params', {
     'min_extrusion_threshold': 0.01,
     'torch_output': 1,
     'apo_cdis': 0.25,
-    'auto_prusa_origin': False,
-    # NEW tuning parameters for motion + appropriate torch state transitions
+    'auto_prusa_origin': True,
+    # Motion + torch state transitions
     'pre_flow': 0.2,           
     'post_flow': 0.2,          
-    'blend_within_bead': True,  
+    'blend_within_bead': True,
+    # NEW: Weaving parameters
+    'weaving_enabled': True,      # Enable/disable weaving
+    'weaving_amplitude': 2.0,      # Amplitude in mm (half-width of weave)
+    'weaving_frequency': 2.0,      # Cycles per unit length (adjust based on speed)
+    'weaving_points_per_cycle': 8, # Points to generate per sine wave cycle
 })
 
 HEADER_SRC = """DEF {program_name}()
@@ -45,7 +50,7 @@ HEADER_SRC = """DEF {program_name}()
     BAS (#INITMOV,0)
   ;ENDFOLD (BASISTECH INI)
   ;FOLD USER INI
-    ;WAAM-optimized initialization
+    ;WAAM-optimized initialization with weaving capability
   ;ENDFOLD (USER INI)
 ;ENDFOLD (INI)
 
@@ -123,7 +128,7 @@ class TunedTranspiler:
         y_b = self.prusa_origin.get('y', PRUSA_SLICER_ORIGIN.get('y', 0)) + y
         z_b = self.prusa_origin.get('z', PRUSA_SLICER_ORIGIN.get('z', -2)) + z
         return x_b, y_b, z_b
-
+    
     def parse_gcode(self, lines: List[str]):
         pos_mode = 'absolute'
         last_e = 0.0
@@ -158,7 +163,6 @@ class TunedTranspiler:
             e = None
             if xm:
                 xv = float(xm.group(1))
-                # determine absolute X of this movement for auto-origin
                 abs_x = xv if pos_mode == 'absolute' else x + xv
                 if first_x is None:
                     first_x = abs_x
@@ -182,7 +186,6 @@ class TunedTranspiler:
             p = Point(x, y, z, welding=welding, feed_rate=f, e=e, raw_line=s)
             self.points.append(p)
             self.current_pos = (x, y, z)
-        # NOTE: auto prusa origin will be computed after per-layer welding detection
 
     def feed_to_velcp(self, f_mm_per_min: float) -> float:
         return max(0.0001, min(ROBOT_SPECS.get('max_tcp_speed', 0.3), f_mm_per_min / 60000.0))
@@ -190,6 +193,64 @@ class TunedTranspiler:
     def format_pos(self, x: float, y: float, z: float) -> str:
         xb, yb, zb = self.transform(x, y, z)
         return f"{{X {xb:.3f}, Y {yb:.3f}, Z {zb:.3f}, A 129.7, B -46.5, C 162.4}}"
+
+    def generate_weave_points(self, p1: Point, p2: Point) -> List[tuple]:
+        """
+        Generate intermediate points with sinusoidal oscillation perpendicular to travel direction.
+        Returns list of (x, y, z) tuples representing the weaved path.
+        """
+        if not WAAM_PARAMS.get('weaving_enabled', False):
+            return [(p2.x, p2.y, p2.z)]
+        
+        # Calculate travel vector
+        dx = p2.x - p1.x
+        dy = p2.y - p1.y
+        dz = p2.z - p1.z
+        length = math.sqrt(dx*dx + dy*dy + dz*dz)
+        
+        # Skip weaving for very short segments
+        if length < 0.5:
+            return [(p2.x, p2.y, p2.z)]
+        
+        # Weaving parameters
+        amplitude = WAAM_PARAMS.get('weaving_amplitude', 2.0)
+        frequency = WAAM_PARAMS.get('weaving_frequency', 2.0)
+        points_per_cycle = WAAM_PARAMS.get('weaving_points_per_cycle', 8)
+        
+        # Calculate perpendicular vector in XY plane (most common for WAAM)
+        # Perpendicular to (dx, dy) is (-dy, dx)
+        perp_mag = math.sqrt(dx*dx + dy*dy)
+        if perp_mag < 0.001:  # Purely vertical move, no weaving
+            return [(p2.x, p2.y, p2.z)]
+        
+        perp_x = -dy / perp_mag
+        perp_y = dx / perp_mag
+        
+        # Generate weave points
+        num_cycles = frequency * length
+        total_points = max(2, int(num_cycles * points_per_cycle))
+        
+        weave_points = []
+        for i in range(1, total_points + 1):
+            t = i / total_points  # Progress along segment [0, 1]
+            
+            # Position along the linear path
+            base_x = p1.x + t * dx
+            base_y = p1.y + t * dy
+            base_z = p1.z + t * dz
+            
+            # Sinusoidal offset perpendicular to path
+            phase = 2 * math.pi * frequency * t * length
+            offset = amplitude * math.sin(phase)
+            
+            # Apply offset in perpendicular direction
+            weave_x = base_x + offset * perp_x
+            weave_y = base_y + offset * perp_y
+            weave_z = base_z  # Keep Z linear (no vertical oscillation)
+            
+            weave_points.append((weave_x, weave_y, weave_z))
+        
+        return weave_points
 
     def generate_krl(self, program_name: str = "WAAM_PART") -> str:
         k = []
@@ -200,12 +261,16 @@ class TunedTranspiler:
             torch_output=WAAM_PARAMS.get('torch_output', 1)
         )
         k.append(header)
+        
+        # Add weaving info to header comments
+        if WAAM_PARAMS.get('weaving_enabled', False):
+            k.append(f"; Weaving enabled: amplitude={WAAM_PARAMS.get('weaving_amplitude', 2.0)}mm, ")
+            k.append(f"frequency={WAAM_PARAMS.get('weaving_frequency', 2.0)}/mm\n")
       
         layers = []
         current_layer: List[Point] = []
         for p in self.points:
             if p.raw_line and (p.raw_line.startswith(';LAYER_CHANGE') or p.raw_line.startswith(';Z:')):
-                # finish current layer and start a new one, keep marker as first element
                 if current_layer:
                     layers.append(current_layer)
                 current_layer = [p]
@@ -214,7 +279,7 @@ class TunedTranspiler:
         if current_layer:
             layers.append(current_layer)
 
-        # refine welding detection per-layer based on E deltas - mark previous point too
+        # Refine welding detection per-layer
         for layer_points in layers:
             prev_e = 0.0
             for i_pt, pt in enumerate(layer_points):
@@ -235,7 +300,7 @@ class TunedTranspiler:
                     first_weld = p
                     break
             if first_weld:
-                self.prusa_origin['x'] = -first_weld.x
+                self.prusa_origin['x'] = -first_weld.x + 60
                 self.prusa_origin['y'] = -first_weld.y
                 k.append(f"; Auto prusa origin applied: x={self.prusa_origin['x']:.3f}, y={self.prusa_origin['y']:.3f}\n")
 
@@ -247,12 +312,12 @@ class TunedTranspiler:
 
         last_emitted_pos = None
 
-        def emit_lin(pt: Point, continue_motion: bool = False):
+        def emit_lin(x: float, y: float, z: float, continue_motion: bool = False):
             nonlocal last_emitted_pos
-            pos_tuple = (round(pt.x, 6), round(pt.y, 6), round(pt.z, 6))
+            pos_tuple = (round(x, 6), round(y, 6), round(z, 6))
             if last_emitted_pos == pos_tuple:
                 return
-            pos = self.format_pos(pt.x, pt.y, pt.z)
+            pos = self.format_pos(x, y, z)
             if continue_motion:
                 k.append(f"LIN {pos} C_DIS\nCONTINUE\n")
             else:
@@ -283,36 +348,39 @@ class TunedTranspiler:
             for seg in segments:
                 if not seg:
                     continue
-                # reversing alternating segments to reduce travel
+                
+                # Reverse alternating segments to reduce travel
                 emitted = list(reversed(seg)) if flip_next else list(seg)
 
-               #  blocking LIN (no CONTINUE) to ensure stop at start point
+                # Move to start point (blocking LIN)
                 start_pt = emitted[0]
-                emit_lin(start_pt, continue_motion=False)
+                emit_lin(start_pt.x, start_pt.y, start_pt.z, continue_motion=False)
 
-                # Torch on and pre flow dwell
+                # Torch on and pre-flow dwell
                 k.append(f"$OUT[{torch_out}] = TRUE\n")
                 if pre_flow and pre_flow > 0:
                     k.append(f"WAIT SEC {pre_flow:.3f}\n")
 
-               
-                 # emit CONTINUE after each intermediate point, but make the LAST point a blocking LIN
-                m = len(emitted)
-                for idx, wp in enumerate(emitted):
-                   
-                    if idx == 0:
-                        continue
-                    is_last = (idx == m-1)
-                    # use CONTINUE for intermediate points when blending is desired
-                    emit_lin(wp, continue_motion=(blend_within and not is_last))
+                # Generate weaved path through all points in segment
+                for idx in range(len(emitted) - 1):
+                    p1 = emitted[idx]
+                    p2 = emitted[idx + 1]
+                    
+                    # Get weave points between p1 and p2
+                    weave_coords = self.generate_weave_points(p1, p2)
+                    
+                    # Emit all weave points
+                    for wc_idx, (wx, wy, wz) in enumerate(weave_coords):
+                        is_last_in_segment = (idx == len(emitted) - 2) and (wc_idx == len(weave_coords) - 1)
+                        # Use CONTINUE for all intermediate points, blocking LIN for last point
+                        emit_lin(wx, wy, wz, continue_motion=(blend_within and not is_last_in_segment))
 
-                #  ensure motion has completed before turning torch off
-                # The last emitted LIN was blocking (continue_motion=False) so we are safe to toggle
+                # Torch off after motion completes
                 k.append(f"$OUT[{torch_out}] = FALSE\n")
                 if post_flow and post_flow > 0:
                     k.append(f"WAIT SEC {post_flow:.3f}\n")
 
-              #   inter-layer delay (if this segment ended a layer)
+                # Inter-layer delay
                 if inter_delay and inter_delay > 0:
                     k.append(f"WAIT SEC {inter_delay:.2f}\n")
 
@@ -326,7 +394,7 @@ class TunedTranspiler:
         krl = self.generate_krl(program_name)
         with open(src_path, 'w') as f:
             f.write(krl)
-        # write a minimal dat
+        # Write minimal dat
         dat = HEADER_DAT.format(program_name=program_name)
         with open(dat_path, 'w') as f:
             f.write(dat)
@@ -350,4 +418,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

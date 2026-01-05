@@ -119,7 +119,7 @@ class GCodeCleaner:
             parsed.command = code_upper.split()[0] if code_upper.split() else None
             return parsed
         
-        # Check for G92 (set position)
+        # Check for G92 
         if 'G92' in code_upper:
             parsed.is_important = True
             parsed.command = 'G92'
@@ -265,27 +265,25 @@ class GCodeCleaner:
     
     def print_statistics(self):
         """Print cleaning statistics"""
-        print("\n" + "="*60)
-        print("  G-CODE CLEANING STATISTICS")
-        print("="*60)
+
         print(f"  Input lines:              {self.stats['total_lines']}")
         print(f"  Output lines:             {self.stats['output_lines']}")
         print(f"  Removed:                  {self.stats['total_lines'] - self.stats['output_lines']}")
         print(f"\n  Breakdown:")
-        print(f"    • Duplicate positions:  {self.stats['duplicate_positions']}")
-        print(f"    • Zero-distance moves:  {self.stats['zero_distance_moves']}")
-        print(f"    • Redundant G92 E0:     {self.stats['redundant_g92']}")
+        print(f"     Duplicate positions:  {self.stats['duplicate_positions']}")
+        print(f"     Zero-distance moves:  {self.stats['zero_distance_moves']}")
+        print(f"     Redundant G92 E0:     {self.stats['redundant_g92']}")
         
         reduction = (1 - self.stats['output_lines'] / self.stats['total_lines']) * 100
         print(f"\n  Size reduction:           {reduction:.1f}%")
-        print("="*60 + "\n")
+    
 
 
 def main():
     if len(sys.argv) < 2:
         print("\n" + "="*60)
         print("  G-code Cleaner - Remove Duplicate Move Commands")
-        print("="*60)
+       
         print("\nUsage:")
         print("  python gcode_cleaner.py <input.gcode> [output.gcode]\n")
         print("Arguments:")
@@ -301,7 +299,7 @@ def main():
         print("Examples:")
         print("  python gcode_cleaner.py part.gcode")
         print("  python gcode_cleaner.py part.gcode part_clean.gcode")
-        print("="*60 + "\n")
+      
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -317,17 +315,15 @@ def main():
         base_name = os.path.splitext(input_file)[0]
         output_file = base_name + "_cleaned.gcode"
     
-    print(f"\n{'='*60}")
-    print(f"  G-code Cleaner")
-    print(f"{'='*60}")
+
     print(f"\nInput:  {input_file}")
     print(f"Output: {output_file}")
 
-    print("\nReading G-code...")
+  
     with open(input_file, 'r') as f:
         lines = f.readlines()
 
-    print("Cleaning G-code...")
+   
     cleaner = GCodeCleaner()
     cleaned_lines = cleaner.clean(
         lines,
@@ -338,7 +334,7 @@ def main():
     )
     
   
-    print("Writing cleaned G-code...")
+ 
     with open(output_file, 'w') as f:
         f.writelines(cleaned_lines)
 
