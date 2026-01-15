@@ -4,12 +4,12 @@
 		"reach": 900,
 		"payload": 6,
 		"max_tcp_speed": 0.3,
-		"default_travel_speed": 0.01,
-		"default_weld_speed": 0.01,
+		"default_travel_speed": 0.005,
+		"default_weld_speed": 0.005,
 		"min_weld_speed": 0.003,
-		"max_weld_speed": 0.01
+		"max_weld_speed": 0.005
 	},
-	"prusa_origin": {"x": 0, "y":0, "z": -2},
+	"prusa_origin": {"x": 0, "y":0, "z": 30},
 	"waam_params": {
 		"pre_weld_delay": 0.0,
 		"arc_strike_delay": 0.0,
@@ -29,9 +29,9 @@
 		"retraction_max_distance": 10.0,
 		"apo_cdis": 0.25,
 		"auto_prusa_origin": true,
-		"weaving_enabled": true,
+		"weaving_enabled": false,
 		"weaving_amplitude": 2.25,
-		"weaving_frequency": 0.5,
+		"weaving_frequency": 0.17, 
 		"weaving_points_per_cycle": 4
 	}
 }

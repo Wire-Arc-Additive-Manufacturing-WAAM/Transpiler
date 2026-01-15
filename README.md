@@ -39,7 +39,7 @@ Upload both files to the robot controller (KRC4/KRC5) under `/R1/Program/`.
 
 ---
 
-## **3. Visualize the Toolpath (Optional but Recommended)**
+## **3. Visualize the Toolpath **
 
 Generate an MP4 video showing the TCP motion from the generated KRL:
 

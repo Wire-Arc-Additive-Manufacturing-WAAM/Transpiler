@@ -15,7 +15,7 @@ except (ImportError, RuntimeError):
 
 ROBOT_IP = '172.31.1.147'
 KVP_TORCH_OUTPUT_VARIABLE = '$OUT[1]'  # KUKA output for torch control
-RELAY_PIN = 24
+RELAY_PIN = 12
 TORCH_POLL_INTERVAL = 0.1  
 
 # Relay polarity constants set only when GPIO is available
