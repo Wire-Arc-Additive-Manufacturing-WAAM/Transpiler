@@ -54,10 +54,10 @@ HEADER_SRC = """DEF {program_name}()
   ;ENDFOLD (USER INI)
 ;ENDFOLD (INI)
 
-BASE_DATA[8] = {{FRAME: X 168.4, Y -507.55, Z 688.59, A 179.6, B -1.15, C 0.29}}
-TOOL_DATA[4] = {{FRAME: X -17.74, Y -37.22, Z 294.62, A 0, B 0, C 0}}
-$BASE = BASE_DATA[8]
-$TOOL = TOOL_DATA[4]
+BASE_DATA[10] = {{FRAME: X 270.73, Y -630.81, Z 710.35, A 179.93, B -0.22, C -1.44}}
+TOOL_DATA[6] = {{FRAME: X -14.67, Y -33.93, Z 286.30, A 0, B 0, C 0}}
+$BASE = BASE_DATA[10]
+$TOOL = TOOL_DATA[6]
 
 BAS (#VEL_PTP,100)
 BAS (#ACC_PTP,100)
@@ -300,8 +300,8 @@ class TunedTranspiler:
                     first_weld = p
                     break
             if first_weld:
-                self.prusa_origin['x'] = -first_weld.x + 60
-                self.prusa_origin['y'] = -first_weld.y
+                self.prusa_origin['x'] = -first_weld.x + 0
+                self.prusa_origin['y'] = -first_weld.y -57.808
                 k.append(f"; Auto prusa origin applied: x={self.prusa_origin['x']:.3f}, y={self.prusa_origin['y']:.3f}\n")
 
         torch_out = WAAM_PARAMS.get('torch_output', 1)
@@ -319,6 +319,7 @@ class TunedTranspiler:
                 return
             pos = self.format_pos(x, y, z)
             if continue_motion:
+                
                 k.append(f"LIN {pos} C_DIS\nCONTINUE\n")
             else:
                 k.append(f"LIN {pos} C_DIS\n")

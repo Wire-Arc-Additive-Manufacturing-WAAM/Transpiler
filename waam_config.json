@@ -9,14 +9,14 @@
 		"min_weld_speed": 0.003,
 		"max_weld_speed": 0.005
 	},
-	"prusa_origin": {"x": 0, "y":0, "z": 30},
+	"prusa_origin": {"x": 0, "y": 0, "z": 0},
 	"waam_params": {
 		"pre_weld_delay": 0.0,
 		"arc_strike_delay": 0.0,
 		"arc_stabilization": 0.0,
 		"arc_off_delay": 0.0,
 		"post_weld_delay": 0.0,
-		"inter_layer_delay": 10.0,
+		"inter_layer_delay": 30.0,
 		"layer_height": 2.0,
 		"start_speed_factor": 0.4,
 		"end_speed_factor": 0.5,
