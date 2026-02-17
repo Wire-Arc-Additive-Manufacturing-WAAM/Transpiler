@@ -27,18 +27,20 @@ ROBOT_SPECS = _cfg.get('robot_specs', {
 })
 
 PRUSA_SLICER_ORIGIN = _cfg.get('prusa_origin', {'x': 0, 'y': 0, 'z': -2})
+TAUGHT_START_ENABLED = _cfg.get('taught_start_position', {}).get('enabled', True)
+TAUGHT_START_SAFETY_DELAY = _cfg.get('taught_start_position', {}).get('safety_delay_seconds', 15.0)
 WAAM_PARAMS = _cfg.get('waam_params', {
-    'inter_layer_delay': 10.0,
+    'inter_layer_delay': 30.0,
     'min_extrusion_threshold': 0.01,
     'torch_output': 1,
     'apo_cdis': 0.25,
-    'auto_prusa_origin': True,
+    'auto_prusa_origin': False,
     # Motion + torch state transitions
     'pre_flow': 0.2,           
     'post_flow': 0.2,          
     'blend_within_bead': True,
     # NEW: Weaving parameters
-    'weaving_enabled': True,      # Enable/disable weaving
+    'weaving_enabled': False,      # Enable/disable weaving
     'weaving_amplitude': 2.0,      # Amplitude in mm (half-width of weave)
     'weaving_frequency': 2.0,      # Cycles per unit length (adjust based on speed)
     'weaving_points_per_cycle': 8, # Points to generate per sine wave cycle
@@ -74,18 +76,15 @@ $ORI_TYPE = #VAR
 $ADVANCE = 1
 $APO.CDIS = {apo_cdis:.2f}
 
-PTP HOME
-
-CONTINUE
-$OUT[{torch_output}] = FALSE
-
-;===========
-; BEGIN WAAM PROCESS
-;===========
-
 """
 
 HEADER_DAT = """DEFDAT {program_name} PUBLIC
+
+DECL E6POS TAUGHT_START
+DECL E6POS TARGET_POS
+DECL E6POS OFFSET_POS
+
+
 DECL E6POS HOME={{X -183.3,Y -17.4,Z 38.3,A 129.7,B -46.5,C 162.4,S 18,T 34}}
 ENDDAT
 """
@@ -122,12 +121,22 @@ class TunedTranspiler:
         self.welding = False
         self.points: List[Point] = []
         self.prusa_origin = dict(PRUSA_SLICER_ORIGIN)
+        self.use_taught_position = TAUGHT_START_ENABLED
+        self.first_weld_point = None  # Will store transformed coords of first weld
 
     def transform(self, x: float, y: float, z: float):
+        """Transform G-code coordinates to robot base coordinates"""
         x_b = self.prusa_origin.get('x', PRUSA_SLICER_ORIGIN.get('x', 0)) + x
         y_b = self.prusa_origin.get('y', PRUSA_SLICER_ORIGIN.get('y', 0)) + y
         z_b = self.prusa_origin.get('z', PRUSA_SLICER_ORIGIN.get('z', -2)) + z
         return x_b, y_b, z_b
+    
+    def find_first_weld_point(self):
+        """Find and store the transformed coordinates of the first weld point"""
+        for p in self.points:
+            if p.welding:
+                self.first_weld_point = self.transform(p.x, p.y, p.z)
+                return
     
     def parse_gcode(self, lines: List[str]):
         pos_mode = 'absolute'
@@ -191,8 +200,19 @@ class TunedTranspiler:
         return max(0.0001, min(ROBOT_SPECS.get('max_tcp_speed', 0.3), f_mm_per_min / 60000.0))
 
     def format_pos(self, x: float, y: float, z: float) -> str:
+        """Format position for KRL output"""
         xb, yb, zb = self.transform(x, y, z)
-        return f"{{X {xb:.3f}, Y {yb:.3f}, Z {zb:.3f}, A 129.7, B -46.5, C 162.4}}"
+        
+        if self.use_taught_position and self.first_weld_point:
+            # Calculate offset from first weld point for X and Y only
+            # Z remains absolute to maintain proper layer heights
+            dx = xb - self.first_weld_point[0]
+            dy = yb - self.first_weld_point[1]
+            # Return as relative offset for X,Y and absolute for Z
+            return f"{{X {dx:.3f}, Y {dy:.3f}, Z {zb:.3f}, A 0, B 0, C 0}}"
+        else:
+            # Return as absolute position
+            return f"{{X {xb:.3f}, Y {yb:.3f}, Z {zb:.3f}, A 129.7, B -46.5, C 162.4}}"
 
     def generate_weave_points(self, p1: Point, p2: Point) -> List[tuple]:
         """
@@ -262,11 +282,22 @@ class TunedTranspiler:
         )
         k.append(header)
         
-        # Add weaving info to header comments
-        if WAAM_PARAMS.get('weaving_enabled', False):
-            k.append(f"; Weaving enabled: amplitude={WAAM_PARAMS.get('weaving_amplitude', 2.0)}mm, ")
-            k.append(f"frequency={WAAM_PARAMS.get('weaving_frequency', 2.0)}/mm\n")
-      
+        # Conditional HOME position - skip if using taught position
+        if not self.use_taught_position:
+            k.append("; Moving to HOME position before starting\n")
+            k.append("PTP HOME\n")
+            k.append("CONTINUE\n")
+            k.append(f"$OUT[{WAAM_PARAMS.get('torch_output', 1)}] = FALSE\n\n")
+        else:
+            k.append("; Taught position mode - skipping HOME move\n")
+            k.append("; Robot should already be at desired starting position\n")
+            k.append(f"$OUT[{WAAM_PARAMS.get('torch_output', 1)}] = FALSE\n\n")
+        
+        k.append(";===========\n")
+        k.append("; BEGIN WAAM PROCESS\n")
+        k.append(";===========\n\n")
+        
+        # Parse layers
         layers = []
         current_layer: List[Point] = []
         for p in self.points:
@@ -293,7 +324,8 @@ class TunedTranspiler:
                             prev_pt.welding = True
                 prev_e = pt.e
 
-        if WAAM_PARAMS.get('auto_prusa_origin', False):
+        # Apply auto prusa origin if not using taught position
+        if WAAM_PARAMS.get('auto_prusa_origin', False) and not self.use_taught_position:
             first_weld = None
             for p in self.points:
                 if p.welding:
@@ -303,6 +335,45 @@ class TunedTranspiler:
                 self.prusa_origin['x'] = -first_weld.x + 0
                 self.prusa_origin['y'] = -first_weld.y -57.808
                 k.append(f"; Auto prusa origin applied: x={self.prusa_origin['x']:.3f}, y={self.prusa_origin['y']:.3f}\n")
+
+        # If using taught position, find first weld point and add KRL to read $POS_ACT
+        if self.use_taught_position:
+            self.find_first_weld_point()
+            if self.first_weld_point:
+                safety_delay = TAUGHT_START_SAFETY_DELAY
+                k.append("; TAUGHT START POSITION MODE ENABLED\n")
+                k.append("; Robot will read current position at startup as substrate origin\n")
+                k.append("; Only X and Y coordinates are offset; Z remains absolute for layer control\n")
+                k.append("; Jog robot to desired starting point before running this program\n\n")
+                k.append("; Read current robot position as taught starting point\n")
+                k.append("TAUGHT_START = $POS_ACT\n\n")
+                k.append("; First motion must be PTP to satisfy KUKA controller requirement\n")
+                k.append("; Moving to taught position (already there, but satisfies KSS01443)\n")
+                k.append("PTP TAUGHT_START\n\n")
+                k.append(f"; SAFETY DELAY - {safety_delay:.1f} seconds before starting weld process\n")
+                k.append("; This allows operator to verify position and move to safety\n")
+                k.append(f"WAIT SEC {safety_delay:.1f}\n\n")
+                k.append(f"; First weld point offset from taught position: X=0.000, Y=0.000 (Z is absolute)\n\n")
+            else:
+                k.append("; Warning: No weld points found, taught position mode disabled\n")
+                self.use_taught_position = False
+        
+        # Add weaving info to header comments
+        if WAAM_PARAMS.get('weaving_enabled', False):
+            k.append(f"; Weaving enabled: amplitude={WAAM_PARAMS.get('weaving_amplitude', 2.0)}mm, ")
+            k.append(f"frequency={WAAM_PARAMS.get('weaving_frequency', 2.0)}/mm\n")
+        
+        # Add welding strategy info
+        welding_strategy = WAAM_PARAMS.get('welding_strategy', 'alternating').lower()
+        travel_z_lift = WAAM_PARAMS.get('travel_z_lift', 5.0)
+        if welding_strategy == 'unidirectional':
+            k.append("; Welding strategy: UNIDIRECTIONAL (A->B, travel back, A->B...)\n")
+        else:
+            k.append("; Welding strategy: ALTERNATING (A->B, B->A, A->B...)\n")
+        
+        # Add travel Z-lift info
+        if travel_z_lift > 0:
+            k.append(f"; Travel Z-lift: {travel_z_lift:.1f}mm (prevents scratching welded beads)\n")
 
         torch_out = WAAM_PARAMS.get('torch_output', 1)
         inter_delay = WAAM_PARAMS.get('inter_layer_delay', 10.0)
@@ -318,11 +389,28 @@ class TunedTranspiler:
             if last_emitted_pos == pos_tuple:
                 return
             pos = self.format_pos(x, y, z)
-            if continue_motion:
-                
-                k.append(f"LIN {pos} C_DIS\nCONTINUE\n")
+            
+            if self.use_taught_position:
+                # In taught mode, add X,Y offset to TAUGHT_START, use Z as absolute
+                k.append(f"OFFSET_POS = {pos}\n")
+                k.append(f"TARGET_POS = TAUGHT_START\n")
+                k.append(f"TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X\n")
+                k.append(f"TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y\n")
+                k.append(f"TARGET_POS.Z = OFFSET_POS.Z\n")  # Z is absolute, not offset
+                k.append(f"TARGET_POS.A = TAUGHT_START.A\n")
+                k.append(f"TARGET_POS.B = TAUGHT_START.B\n")
+                k.append(f"TARGET_POS.C = TAUGHT_START.C\n")
+                if continue_motion:
+                    k.append(f"LIN TARGET_POS C_DIS\nCONTINUE\n")
+                else:
+                    k.append(f"LIN TARGET_POS C_DIS\n")
             else:
-                k.append(f"LIN {pos} C_DIS\n")
+                # Normal mode, use absolute positions
+                if continue_motion:
+                    k.append(f"LIN {pos} C_DIS\nCONTINUE\n")
+                else:
+                    k.append(f"LIN {pos} C_DIS\n")
+            
             last_emitted_pos = pos_tuple
 
         flip_next = False
@@ -350,8 +438,15 @@ class TunedTranspiler:
                 if not seg:
                     continue
                 
-                # Reverse alternating segments to reduce travel
-                emitted = list(reversed(seg)) if flip_next else list(seg)
+                # Apply welding strategy
+                if welding_strategy == 'unidirectional':
+                    # Unidirectional: always weld in original direction (A to B)
+                    emitted = list(seg)
+                    original_start = seg[0]  # Store original start point for travel back
+                else:
+                    # Alternating/zigzag: reverse every other segment to reduce travel
+                    emitted = list(reversed(seg)) if flip_next else list(seg)
+                    original_start = None
 
                 # Move to start point (blocking LIN)
                 start_pt = emitted[0]
@@ -381,11 +476,30 @@ class TunedTranspiler:
                 if post_flow and post_flow > 0:
                     k.append(f"WAIT SEC {post_flow:.3f}\n")
 
+                # Lift Z to avoid scratching welded bead during travel
+                if travel_z_lift > 0:
+                    k.append(f"; Lift Z by {travel_z_lift:.1f}mm to avoid scratching welded bead\n")
+                    k.append(f"LIN_REL {{Z {travel_z_lift:.1f}}}\n")
+
+                # Unidirectional strategy: travel back to original start point
+                if welding_strategy == 'unidirectional' and original_start:
+                    k.append("; Travel back to start for unidirectional strategy\n")
+                    # Travel at lifted height (original_z + lift) to stay clear of welded bead
+                    travel_z = original_start.z + travel_z_lift if travel_z_lift > 0 else original_start.z
+                    emit_lin(original_start.x, original_start.y, travel_z, continue_motion=False)
+
+                # Lower Z back to weld height after travel
+                if travel_z_lift > 0:
+                    k.append(f"; Lower Z back to weld height\n")
+                    k.append(f"LIN_REL {{Z -{travel_z_lift:.1f}}}\n")
+
                 # Inter-layer delay
                 if inter_delay and inter_delay > 0:
                     k.append(f"WAIT SEC {inter_delay:.2f}\n")
 
-                flip_next = not flip_next
+                # Only flip for alternating strategy
+                if welding_strategy != 'unidirectional':
+                    flip_next = not flip_next
 
         footer = FOOTER_SRC.format(default_travel_speed=ROBOT_SPECS.get('default_travel_speed', 0.005))
         k.append(footer)
@@ -393,11 +507,11 @@ class TunedTranspiler:
 
     def write(self, src_path: str, dat_path: str, program_name: str = "WAAM_PART"):
         krl = self.generate_krl(program_name)
-        with open(src_path, 'w') as f:
+        with open(src_path, 'w', encoding='utf-8') as f:
             f.write(krl)
         # Write minimal dat
         dat = HEADER_DAT.format(program_name=program_name)
-        with open(dat_path, 'w') as f:
+        with open(dat_path, 'w', encoding='utf-8') as f:
             f.write(dat)
 
 
@@ -407,7 +521,7 @@ def main():
         sys.exit(1)
     gfile = sys.argv[1]
     program_name = sys.argv[2] if len(sys.argv) >= 3 else Path(gfile).stem.upper()
-    with open(gfile, 'r') as f:
+    with open(gfile, 'r', encoding='utf-8') as f:
         lines = f.readlines()
     t = TunedTranspiler()
     t.parse_gcode(lines)
@@ -415,6 +529,7 @@ def main():
     out_dat = Path(gfile).with_suffix('.dat')
     t.write(str(out_src), str(out_dat), program_name=program_name)
     print(f'Wrote: {out_src} and {out_dat}')
+
 
 
 if __name__ == '__main__':

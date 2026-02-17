@@ -1,4 +1,3 @@
-
 {
 	"robot_specs": {
 		"reach": 900,
@@ -10,7 +9,13 @@
 		"max_weld_speed": 0.005
 	},
 	"prusa_origin": {"x": 0, "y": 0, "z": 0},
+	"taught_start_position": {
+		"enabled": true,
+		"safety_delay_seconds": 15.0
+	},
 	"waam_params": {
+		"welding_strategy": "unidirectional",
+		"travel_z_lift": 5.0,
 		"pre_weld_delay": 0.0,
 		"arc_strike_delay": 0.0,
 		"arc_stabilization": 0.0,
@@ -28,7 +33,7 @@
 		"torch_output": 1,
 		"retraction_max_distance": 10.0,
 		"apo_cdis": 0.25,
-		"auto_prusa_origin": true,
+		"auto_prusa_origin": false,
 		"weaving_enabled": false,
 		"weaving_amplitude": 2.25,
 		"weaving_frequency": 0.17, 
