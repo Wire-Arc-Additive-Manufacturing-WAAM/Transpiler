@@ -391,12 +391,12 @@ class TunedTranspiler:
             pos = self.format_pos(x, y, z)
             
             if self.use_taught_position:
-                # In taught mode, add X,Y offset to TAUGHT_START, use Z as absolute
+                # In taught mode, add X,Y,Z offset to TAUGHT_START
                 k.append(f"OFFSET_POS = {pos}\n")
                 k.append(f"TARGET_POS = TAUGHT_START\n")
                 k.append(f"TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X\n")
                 k.append(f"TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y\n")
-                k.append(f"TARGET_POS.Z = OFFSET_POS.Z\n")  # Z is absolute, not offset
+                k.append(f"TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z\n")  
                 k.append(f"TARGET_POS.A = TAUGHT_START.A\n")
                 k.append(f"TARGET_POS.B = TAUGHT_START.B\n")
                 k.append(f"TARGET_POS.C = TAUGHT_START.C\n")
