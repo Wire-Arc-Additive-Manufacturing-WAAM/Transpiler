@@ -8,7 +8,7 @@
 		"min_weld_speed": 0.003,
 		"max_weld_speed": 0.005
 	},
-	"prusa_origin": {"x": 0, "y": 0, "z": 0},
+	"prusa_origin": {"x": 0, "y": 0, "z": -2},
 	"taught_start_position": {
 		"enabled": true,
 		"safety_delay_seconds": 15.0

@@ -95,7 +95,7 @@ FOOTER_SRC = """
 ;===========
 
 $VEL.CP = {default_travel_speed:.4f}
-LIN_REL {{Z 20}}
+LIN_REL {{Z 30}}
 WAIT SEC 0
 $OV_PRO = 10
 PTP HOME
@@ -343,7 +343,7 @@ class TunedTranspiler:
                 safety_delay = TAUGHT_START_SAFETY_DELAY
                 k.append("; TAUGHT START POSITION MODE ENABLED\n")
                 k.append("; Robot will read current position at startup as substrate origin\n")
-                k.append("; Only X and Y coordinates are offset; Z remains absolute for layer control\n")
+                k.append("; X, Y and Z coordinates are offset\n")
                 k.append("; Jog robot to desired starting point before running this program\n\n")
                 k.append("; Read current robot position as taught starting point\n")
                 k.append("TAUGHT_START = $POS_ACT\n\n")
@@ -414,6 +414,8 @@ class TunedTranspiler:
             last_emitted_pos = pos_tuple
 
         flip_next = False
+        unidirectional_start_ref = None  # Track reference start point for unidirectional mode
+        
         for layer_idx, layer_points in enumerate(layers):
             start_index = 0
             if layer_points and layer_points[0].raw_line and (layer_points[0].raw_line.startswith(';LAYER_CHANGE') or layer_points[0].raw_line.startswith(';Z:')):
@@ -440,9 +442,27 @@ class TunedTranspiler:
                 
                 # Apply welding strategy
                 if welding_strategy == 'unidirectional':
-                    # Unidirectional: always weld in original direction (A to B)
-                    emitted = list(seg)
-                    original_start = seg[0]  # Store original start point for travel back
+                    # Unidirectional: always weld in same direction (A to B)
+                    # For first segment, set reference and use as-is
+                    if unidirectional_start_ref is None:
+                        unidirectional_start_ref = (seg[0].x, seg[0].y)
+                        emitted = list(seg)
+                        original_start = seg[0]
+                    else:
+                        # For subsequent segments, check if we need to reverse
+                        # to maintain same start position (in X,Y)
+                        dist_to_start = math.sqrt((seg[0].x - unidirectional_start_ref[0])**2 + 
+                                                   (seg[0].y - unidirectional_start_ref[1])**2)
+                        dist_to_end = math.sqrt((seg[-1].x - unidirectional_start_ref[0])**2 + 
+                                                 (seg[-1].y - unidirectional_start_ref[1])**2)
+                        
+                        # If end is closer to reference start than beginning, reverse segment
+                        if dist_to_end < dist_to_start:
+                            emitted = list(reversed(seg))
+                            original_start = seg[-1]  # Original start is now the last point
+                        else:
+                            emitted = list(seg)
+                            original_start = seg[0]
                 else:
                     # Alternating/zigzag: reverse every other segment to reduce travel
                     emitted = list(reversed(seg)) if flip_next else list(seg)
