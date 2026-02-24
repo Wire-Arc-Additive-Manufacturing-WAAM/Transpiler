@@ -366,6 +366,7 @@ class TunedTranspiler:
         # Add welding strategy info
         welding_strategy = WAAM_PARAMS.get('welding_strategy', 'alternating').lower()
         travel_z_lift = WAAM_PARAMS.get('travel_z_lift', 5.0)
+        travel_stabilization_delay = WAAM_PARAMS.get('travel_stabilization_delay', 5.0)
         if welding_strategy == 'unidirectional':
             k.append("; Welding strategy: UNIDIRECTIONAL (A->B, travel back, A->B...)\n")
         else:
@@ -374,6 +375,8 @@ class TunedTranspiler:
         # Add travel Z-lift info
         if travel_z_lift > 0:
             k.append(f"; Travel Z-lift: {travel_z_lift:.1f}mm (prevents scratching welded beads)\n")
+        if travel_stabilization_delay > 0:
+            k.append(f"; Travel stabilization delay: {travel_stabilization_delay:.1f}s (wait after travel before Z lowers)\n")
 
         torch_out = WAAM_PARAMS.get('torch_output', 1)
         inter_delay = WAAM_PARAMS.get('inter_layer_delay', 10.0)
@@ -507,6 +510,11 @@ class TunedTranspiler:
                     # Travel at lifted height (original_z + lift) to stay clear of welded bead
                     travel_z = original_start.z + travel_z_lift if travel_z_lift > 0 else original_start.z
                     emit_lin(original_start.x, original_start.y, travel_z, continue_motion=False)
+
+                # Stabilization delay - wait for travel motion to fully complete before lowering Z
+                if travel_z_lift > 0 and travel_stabilization_delay > 0:
+                    k.append(f"; Stabilization delay - ensures travel motion completes before Z lowers\n")
+                    k.append(f"WAIT SEC {travel_stabilization_delay:.1f}\n")
 
                 # Lower Z back to weld height after travel
                 if travel_z_lift > 0:
