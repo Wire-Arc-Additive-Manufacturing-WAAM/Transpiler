@@ -55,48 +55,10 @@ WAIT SEC 15.0
 ; First weld point offset from taught position: X=0.000, Y=0.000 (Z is absolute)
 
 ; Welding strategy: UNIDIRECTIONAL (A->B, travel back, A->B...)
-; Travel Z-lift: 5.0mm (prevents scratching welded beads)
+; Travel Z-lift: 10.0mm (prevents scratching welded beads)
+; Travel stabilization delay: 5.0s (wait after travel before Z lowers)
 ; ;LAYER_CHANGE
 ; ;Z:2
-OFFSET_POS = {X 0.000, Y 0.000, Z 0.000, A 0, B 0, C 0}
-TARGET_POS = TAUGHT_START
-TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
-TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
-TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
-TARGET_POS.A = TAUGHT_START.A
-TARGET_POS.B = TAUGHT_START.B
-TARGET_POS.C = TAUGHT_START.C
-LIN TARGET_POS C_DIS
-$OUT[1] = TRUE
-WAIT SEC 0.200
-OFFSET_POS = {X 95.500, Y 0.000, Z 0.000, A 0, B 0, C 0}
-TARGET_POS = TAUGHT_START
-TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
-TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
-TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
-TARGET_POS.A = TAUGHT_START.A
-TARGET_POS.B = TAUGHT_START.B
-TARGET_POS.C = TAUGHT_START.C
-LIN TARGET_POS C_DIS
-$OUT[1] = FALSE
-WAIT SEC 0.200
-; Lift Z by 5.0mm to avoid scratching welded bead
-LIN_REL {Z 5.0}
-; Travel back to start for unidirectional strategy
-OFFSET_POS = {X 0.000, Y 0.000, Z 5.000, A 0, B 0, C 0}
-TARGET_POS = TAUGHT_START
-TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
-TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
-TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
-TARGET_POS.A = TAUGHT_START.A
-TARGET_POS.B = TAUGHT_START.B
-TARGET_POS.C = TAUGHT_START.C
-LIN TARGET_POS C_DIS
-; Lower Z back to weld height
-LIN_REL {Z -5.0}
-WAIT SEC 30.00
-; ;LAYER_CHANGE
-; ;Z:4
 OFFSET_POS = {X 0.000, Y 0.000, Z 2.000, A 0, B 0, C 0}
 TARGET_POS = TAUGHT_START
 TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
@@ -119,10 +81,10 @@ TARGET_POS.C = TAUGHT_START.C
 LIN TARGET_POS C_DIS
 $OUT[1] = FALSE
 WAIT SEC 0.200
-; Lift Z by 5.0mm to avoid scratching welded bead
-LIN_REL {Z 5.0}
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
 ; Travel back to start for unidirectional strategy
-OFFSET_POS = {X 0.000, Y 0.000, Z 7.000, A 0, B 0, C 0}
+OFFSET_POS = {X 0.000, Y 0.000, Z 12.000, A 0, B 0, C 0}
 TARGET_POS = TAUGHT_START
 TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
 TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
@@ -131,11 +93,13 @@ TARGET_POS.A = TAUGHT_START.A
 TARGET_POS.B = TAUGHT_START.B
 TARGET_POS.C = TAUGHT_START.C
 LIN TARGET_POS C_DIS
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
 ; Lower Z back to weld height
-LIN_REL {Z -5.0}
+LIN_REL {Z -10.0}
 WAIT SEC 30.00
 ; ;LAYER_CHANGE
-; ;Z:6
+; ;Z:4
 OFFSET_POS = {X 0.000, Y 0.000, Z 4.000, A 0, B 0, C 0}
 TARGET_POS = TAUGHT_START
 TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
@@ -158,10 +122,10 @@ TARGET_POS.C = TAUGHT_START.C
 LIN TARGET_POS C_DIS
 $OUT[1] = FALSE
 WAIT SEC 0.200
-; Lift Z by 5.0mm to avoid scratching welded bead
-LIN_REL {Z 5.0}
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
 ; Travel back to start for unidirectional strategy
-OFFSET_POS = {X 0.000, Y 0.000, Z 9.000, A 0, B 0, C 0}
+OFFSET_POS = {X 0.000, Y 0.000, Z 14.000, A 0, B 0, C 0}
 TARGET_POS = TAUGHT_START
 TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
 TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
@@ -170,11 +134,13 @@ TARGET_POS.A = TAUGHT_START.A
 TARGET_POS.B = TAUGHT_START.B
 TARGET_POS.C = TAUGHT_START.C
 LIN TARGET_POS C_DIS
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
 ; Lower Z back to weld height
-LIN_REL {Z -5.0}
+LIN_REL {Z -10.0}
 WAIT SEC 30.00
 ; ;LAYER_CHANGE
-; ;Z:8
+; ;Z:6
 OFFSET_POS = {X 0.000, Y 0.000, Z 6.000, A 0, B 0, C 0}
 TARGET_POS = TAUGHT_START
 TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
@@ -197,10 +163,10 @@ TARGET_POS.C = TAUGHT_START.C
 LIN TARGET_POS C_DIS
 $OUT[1] = FALSE
 WAIT SEC 0.200
-; Lift Z by 5.0mm to avoid scratching welded bead
-LIN_REL {Z 5.0}
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
 ; Travel back to start for unidirectional strategy
-OFFSET_POS = {X 0.000, Y 0.000, Z 11.000, A 0, B 0, C 0}
+OFFSET_POS = {X 0.000, Y 0.000, Z 16.000, A 0, B 0, C 0}
 TARGET_POS = TAUGHT_START
 TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
 TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
@@ -209,11 +175,13 @@ TARGET_POS.A = TAUGHT_START.A
 TARGET_POS.B = TAUGHT_START.B
 TARGET_POS.C = TAUGHT_START.C
 LIN TARGET_POS C_DIS
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
 ; Lower Z back to weld height
-LIN_REL {Z -5.0}
+LIN_REL {Z -10.0}
 WAIT SEC 30.00
 ; ;LAYER_CHANGE
-; ;Z:10
+; ;Z:8
 OFFSET_POS = {X 0.000, Y 0.000, Z 8.000, A 0, B 0, C 0}
 TARGET_POS = TAUGHT_START
 TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
@@ -236,10 +204,10 @@ TARGET_POS.C = TAUGHT_START.C
 LIN TARGET_POS C_DIS
 $OUT[1] = FALSE
 WAIT SEC 0.200
-; Lift Z by 5.0mm to avoid scratching welded bead
-LIN_REL {Z 5.0}
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
 ; Travel back to start for unidirectional strategy
-OFFSET_POS = {X 0.000, Y 0.000, Z 13.000, A 0, B 0, C 0}
+OFFSET_POS = {X 0.000, Y 0.000, Z 18.000, A 0, B 0, C 0}
 TARGET_POS = TAUGHT_START
 TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
 TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
@@ -248,8 +216,51 @@ TARGET_POS.A = TAUGHT_START.A
 TARGET_POS.B = TAUGHT_START.B
 TARGET_POS.C = TAUGHT_START.C
 LIN TARGET_POS C_DIS
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
 ; Lower Z back to weld height
-LIN_REL {Z -5.0}
+LIN_REL {Z -10.0}
+WAIT SEC 30.00
+; ;LAYER_CHANGE
+; ;Z:10
+OFFSET_POS = {X 0.000, Y 0.000, Z 10.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = TRUE
+WAIT SEC 0.200
+OFFSET_POS = {X 95.500, Y 0.000, Z 10.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = FALSE
+WAIT SEC 0.200
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
+; Travel back to start for unidirectional strategy
+OFFSET_POS = {X 0.000, Y 0.000, Z 20.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
+; Lower Z back to weld height
+LIN_REL {Z -10.0}
 WAIT SEC 30.00
 
 ;===========
