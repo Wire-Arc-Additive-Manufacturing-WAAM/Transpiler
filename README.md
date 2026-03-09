@@ -72,3 +72,7 @@ Make sure the GIF is placed in the same directory as the README or update the pa
 
 ---
 
+
+## **Config Bundle**
+The description of the modified parameters as well as the reasons why can be found here: `https://waam.atlassian.net/wiki/spaces/WAAM/pages/142639105/Transpiler+Trajectory+Motion+Planning`
+
