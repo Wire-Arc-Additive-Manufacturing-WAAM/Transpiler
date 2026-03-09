@@ -74,8 +74,12 @@ Make sure the GIF is placed in the same directory as the README or update the pa
 
 
 ## **Config Bundle**
-The description of the modified parameters as well as the reasons why can be found here: `https://waam.atlassian.net/wiki/spaces/WAAM/pages/142639105/Transpiler+Trajectory+Motion+Planning`
+
+The description of the modified parameters as well as the reasons why can be found here:  
+https://waam.atlassian.net/wiki/spaces/WAAM/pages/142639105/Transpiler+Trajectory+Motion+Planning
+
 Changes added to initial config bundle v1.0 to accommodate infill during deposition:
-![Prusa Slicer WAAM Config Bundle Supporting Infill ](Screenshot 2026-03-09 221324.png)
+
+![Prusa Slicer WAAM Config Bundle Supporting Infill](Screenshot_2026-03-09_221324.png)
 
 
