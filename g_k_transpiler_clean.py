@@ -528,6 +528,7 @@ class TunedTranspiler:
                     k.append(";Waiting for TEMP_VAR to go high indicating temperature reached before next layer\n")
                     k.append(f"WAIT SEC 30\n")  # Initial wait to allow temp to start rising 
                     k.append("WAIT FOR TEMP_VAR\n")
+                    k.append(f"WAIT SEC 30\n")  # this wait will be removed, for now it just allows us to record the progress before each layer
                 elif inter_delay and inter_delay > 0:
                     k.append(f"WAIT SEC {inter_delay:.2f}\n")
 

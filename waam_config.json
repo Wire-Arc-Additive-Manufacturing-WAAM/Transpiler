@@ -15,7 +15,7 @@
     },
     "waam_params": {
         "delay_type": "time",  
-        "welding_strategy": "alternating",
+        "welding_strategy": "unidirectional",
         "travel_z_lift": 10,
         "travel_stabilization_delay": 5.0,
         "pre_weld_delay": 0.0,
@@ -23,7 +23,7 @@
         "arc_stabilization": 0.0,
         "arc_off_delay": 0.0,
         "post_weld_delay": 0.0,
-        "inter_layer_delay": 35.0,
+        "inter_layer_delay": 39.8,
         "layer_height": 2.0,
         "start_speed_factor": 0.4,
         "end_speed_factor": 0.5,
