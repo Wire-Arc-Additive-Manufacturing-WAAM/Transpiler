@@ -73,8 +73,9 @@ $VEL.ORI2 = 90
 $ACC.ORI1 = 500
 $ACC.ORI2 = 500
 $ORI_TYPE = #VAR
-$ADVANCE = 1
+$ADVANCE = 3
 $APO.CDIS = {apo_cdis:.2f}
+$OV_PRO = 100
 
 """
 
@@ -83,7 +84,7 @@ HEADER_DAT = """DEFDAT {program_name} PUBLIC
 DECL E6POS TAUGHT_START
 DECL E6POS TARGET_POS
 DECL E6POS OFFSET_POS
-
+DECL BOOL TEMP_VAR  ; temperature-ready flag
 
 DECL E6POS HOME={{X -183.3,Y -17.4,Z 38.3,A 129.7,B -46.5,C 162.4,S 18,T 34}}
 ENDDAT
@@ -423,6 +424,8 @@ class TunedTranspiler:
             start_index = 0
             if layer_points and layer_points[0].raw_line and (layer_points[0].raw_line.startswith(';LAYER_CHANGE') or layer_points[0].raw_line.startswith(';Z:')):
                 k.append(f"; {layer_points[0].raw_line.strip()}\n")
+                k.append("; Reset TEMP_VAR at the start of this layer\n")
+                k.append("TEMP_VAR = FALSE\n")
                 start_index = 1
 
             segments = []
@@ -516,14 +519,24 @@ class TunedTranspiler:
                     k.append(f"; Stabilization delay - ensures travel motion completes before Z lowers\n")
                     k.append(f"WAIT SEC {travel_stabilization_delay:.1f}\n")
 
+                 # Inter-layer delay
+                # if inter_delay and inter_delay > 0:
+                #     k.append(f"WAIT SEC {inter_delay:.2f}\n")
+                #new inter-layer delay based on time or temp variable
+                delay_type = WAAM_PARAMS.get('delay_type', 'time').lower()
+                if delay_type == 'temp':
+                    k.append(";Waiting for TEMP_VAR to go high indicating temperature reached before next layer\n")
+                    k.append(f"WAIT SEC 30\n")  # Initial wait to allow temp to start rising 
+                    k.append("WAIT FOR TEMP_VAR\n")
+                elif inter_delay and inter_delay > 0:
+                    k.append(f"WAIT SEC {inter_delay:.2f}\n")
+
                 # Lower Z back to weld height after travel
                 if travel_z_lift > 0:
                     k.append(f"; Lower Z back to weld height\n")
                     k.append(f"LIN_REL {{Z -{travel_z_lift:.1f}}}\n")
 
-                # Inter-layer delay
-                if inter_delay and inter_delay > 0:
-                    k.append(f"WAIT SEC {inter_delay:.2f}\n")
+               
 
                 # Only flip for alternating strategy
                 if welding_strategy != 'unidirectional':

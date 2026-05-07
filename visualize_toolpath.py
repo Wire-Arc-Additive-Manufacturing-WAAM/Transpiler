@@ -14,56 +14,82 @@ except Exception as e:
     plt = None
 
 
-LIN_RE = re.compile(r'LIN\s*\{([^}]*)\}', re.IGNORECASE)
-OUT_RE = re.compile(r'\$OUT\s*\[\s*(\d+)\s*\]\s*=\s*(TRUE|FALSE)', re.IGNORECASE)
-COORD_RE = re.compile(r'([XYZ])\s*([-+]?[0-9]*\.?[0-9]+)')
-
+LIN_RE     = re.compile(r'LIN\s*\{([^}]*)\}',                              re.IGNORECASE)
+OFFSET_RE  = re.compile(r'OFFSET_POS\s*=\s*\{([^}]*)\}',                   re.IGNORECASE)  # taught mode
+OUT_RE     = re.compile(r'\$OUT\s*\[\s*(\d+)\s*\]\s*=\s*(TRUE|FALSE)',      re.IGNORECASE)
+COORD_RE   = re.compile(r'([XYZ])\s*([-+]?[0-9]*\.?[0-9]+)')
 
 def parse_src(path):
-
-    pos = []
-    torch = []
-    events = []
+    """
+    Parse a KRL .src file. Supports two coordinate modes:
+      • Absolute  — LIN {X … Y … Z …}               (taught_start_position disabled)
+      • Taught    — OFFSET_POS = {X … Y … Z …}       (taught_start_position enabled)
+    """
+    pos       = []
+    torch     = []
+    events    = []
     cur_torch = False
+
     with open(path, 'r') as f:
         for ln in f:
             l = ln.strip()
             if not l:
                 continue
+
+            # Torch state
             m_out = OUT_RE.search(l)
             if m_out:
                 val = m_out.group(2).upper()
                 cur_torch = (val == 'TRUE')
                 events.append({'type': 'torch', 'state': cur_torch, 'line': l})
                 continue
-            m = LIN_RE.search(l)
-            if m:
-                inside = m.group(1)
-                coords = { 'X': None, 'Y': None, 'Z': None }
+
+            # Taught-mode coordinates (OFFSET_POS = {X dx, Y dy, Z zb})
+            m_off = OFFSET_RE.search(l)
+            if m_off:
+                inside = m_off.group(1)
+                coords = {'X': None, 'Y': None, 'Z': None}
                 for cm in COORD_RE.finditer(inside):
                     coords[cm.group(1).upper()] = float(cm.group(2))
                 if coords['X'] is None or coords['Y'] is None or coords['Z'] is None:
-                    # skip incomplete LINs
+                    continue
+                pos.append((coords['X'], coords['Y'], coords['Z']))
+                torch.append(bool(cur_torch))
+                events.append({'type': 'lin', 'pos': pos[-1], 'torch': torch[-1], 'line': l})
+                continue
+
+            # Absolute-mode coordinates (LIN {X … Y … Z …})
+            m = LIN_RE.search(l)
+            if m:
+                inside = m.group(1)
+                coords = {'X': None, 'Y': None, 'Z': None}
+                for cm in COORD_RE.finditer(inside):
+                    coords[cm.group(1).upper()] = float(cm.group(2))
+                if coords['X'] is None or coords['Y'] is None or coords['Z'] is None:
                     events.append({'type': 'lin_incomplete', 'line': l})
                     continue
                 pos.append((coords['X'], coords['Y'], coords['Z']))
                 torch.append(bool(cur_torch))
                 events.append({'type': 'lin', 'pos': pos[-1], 'torch': torch[-1], 'line': l})
                 continue
-            # ignore other lines
+
     return pos, torch, events
 
 
 def print_info(path):
     pos, torch, events = parse_src(path)
-    total = len(pos)
-    welds = sum(1 for t in torch if t)
+    total   = len(pos)
+    welds   = sum(1 for t in torch if t)
     travels = total - welds
-    layers = sum(1 for e in events if e.get('type') == 'lin' and ';LAYER_CHANGE' in e.get('line', ''))
     print(f'Parsed: {total} LIN positions')
-    print(f'  Welding LINs: {welds}')
-    print(f'  Travel LINs:  {travels}')
-    print(f'  Torch toggles/events: {sum(1 for e in events if e.get("type")=="torch")}')
+    print(f'  Welding LINs:         {welds}')
+    print(f'  Travel LINs:          {travels}')
+    print(f'  Torch toggles/events: {sum(1 for e in events if e.get("type") == "torch")}')
+    if pos:
+        xs = [p[0] for p in pos]; ys = [p[1] for p in pos]; zs = [p[2] for p in pos]
+        print(f'  X range: {min(xs):.2f} to {max(xs):.2f}')
+        print(f'  Y range: {min(ys):.2f} to {max(ys):.2f}')
+        print(f'  Z range: {min(zs):.2f} to {max(zs):.2f}')
     return pos, torch
 
 
@@ -99,14 +125,12 @@ def animate_src(path, interval=50, trail=200, save_path: str = None, dpi: int = 
     if weld_x:
         ax.plot(weld_x, weld_y, weld_z, color='red', alpha=0.6, linewidth=2, label='weld')
 
-
     current_point, = ax.plot([xs[0]], [ys[0]], [zs[0]], marker='o', color='k', markersize=8)
     trail_line, = ax.plot([], [], [], color='orange', linewidth=2, alpha=0.9)
 
     ax.legend()
 
     N = len(xs)
-
 
     pad = 10
     ax.set_xlim(min(xs)-pad, max(xs)+pad)
@@ -128,21 +152,20 @@ def animate_src(path, interval=50, trail=200, save_path: str = None, dpi: int = 
         x = xs[idx]
         y = ys[idx]
         z = zs[idx]
-        
+
         current_point.set_data([x], [y])
         current_point.set_3d_properties([z])
- 
+
         start = max(0, idx - trail)
         trail_line.set_data(xs[start:idx+1], ys[start:idx+1])
         trail_line.set_3d_properties(zs[start:idx+1])
-       
+
         current_point.set_color('red' if torch_states[idx] else 'blue')
         return current_point, trail_line
 
     anim = FuncAnimation(fig, update, frames=range(0, N), interval=interval, blit=False, repeat=True)
 
     if save_path:
-        
         try:
             writers = FuncAnimation.canvas.figure.canvas.manager.canvas.figure.canvas.manager
         except Exception:
@@ -156,7 +179,6 @@ def animate_src(path, interval=50, trail=200, save_path: str = None, dpi: int = 
             writer = animation.writers['ffmpeg'](fps=fps)
             anim.save(str(out_p), writer=writer, dpi=dpi)
         else:
-            # fallback 
             try:
                 if out_p.suffix.lower() != '.gif':
                     out_p = out_p.with_suffix('.gif')

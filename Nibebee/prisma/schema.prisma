@@ -1,0 +1,586 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../backend/node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  LoadSeeker
+  LorryOwner
+  Driver
+  Admin
+}
+
+enum CountryCode {
+  KE
+  UG
+  TZ
+}
+
+enum EntityType {
+  Individual
+  Business
+}
+
+enum LorryType {
+  flatbed
+  enclosed
+  refrigerated
+  tanker
+  tipper
+}
+
+enum AvailabilityStatus {
+  Available
+  InTransit
+  Unavailable
+}
+
+enum CargoCategory {
+  agricultural
+  manufactured_goods
+  construction_materials
+  household
+  other
+}
+
+enum BookingRequestStatus {
+  Pending
+  Accepted
+  Rejected
+  Countered
+  Closed
+  AwaitingContract
+}
+
+enum NegotiationActor {
+  Seeker
+  Owner
+}
+
+enum ContractStatus {
+  Draft
+  AwaitingOtp
+  Signed
+  Cancelled
+}
+
+enum EscrowStatus {
+  PendingDeposit
+  DepositHeld
+  DepositReleased
+  BalancePending
+  Completed
+  Refunded
+  Disputed
+}
+
+enum TripStatus {
+  Planned
+  DriverEnRoute
+  CargoLoaded
+  InTransit
+  Approaching
+  Delivered
+  Cancelled
+}
+
+enum MilestoneType {
+  ContractSigned
+  DriverEnRoute
+  CargoLoaded
+  InTransit
+  Approaching
+  Delivered
+}
+
+enum DisputeStatus {
+  Open
+  UnderReview
+  Resolved
+  Escalated
+  Closed
+}
+
+enum SubscriptionPlanType {
+  Free
+  LorryOwnerMonthly
+  LoadSeekerMonthly
+  RouteAlertWeekly
+  Boost
+  BadgeAnnual
+}
+
+enum SubscriptionStatus {
+  Active
+  PastDue
+  Cancelled
+  Paused
+}
+
+enum KycDocumentType {
+  national_id
+  driving_license
+  vehicle_logbook
+  insurance_certificate
+}
+
+enum PayoutStatus {
+  Pending
+  Processing
+  Paid
+  Failed
+}
+
+model User {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  passwordHash     String?
+  supabaseUserId   String?   @unique
+  role             UserRole
+  country          CountryCode
+  phoneE164        String
+  firstName        String
+  lastName         String
+  entityType       EntityType?
+  businessName     String?
+  businessPin      String?
+  cargoPreferences CargoCategory[]
+  isSuspended      Boolean   @default(false)
+  suspendedUntil   DateTime?
+  banReason        String?
+  averageRating    Float     @default(0)
+  ratingCount      Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  refreshTokens      RefreshToken[]
+  lorryListings      LorryListing[]
+  bookingRequests    BookingRequest[] @relation("SeekerBookings")
+  ownerBookings      BookingRequest[] @relation("OwnerBookings")
+  contractsSeeker    Contract[]       @relation("SeekerContracts")
+  contractsOwner     Contract[]       @relation("OwnerContracts")
+  tripsAsSeeker      Trip[]           @relation("SeekerTrips")
+  tripsAsOwner       Trip[]           @relation("OwnerTrips")
+  tripsAsDriver      Trip[]           @relation("DriverTrips")
+  sentMessages       Message[]        @relation("MessageSender")
+  reviewsGiven       Review[]         @relation("Reviewer")
+  reviewsReceived    Review[]         @relation("Reviewee")
+  disputesOpened     Dispute[]        @relation("DisputeOpener")
+  subscriptions      Subscription[]
+  routeAlerts        RouteAlert[]
+  notifications      Notification[]
+  adminLogs          AdminLog[]       @relation("AdminActor")
+  kycDocuments       KycDocument[]
+  badgePurchases     BadgePurchase[]
+  otpChallenges      OtpChallenge[]
+  conversationsA    Conversation[]   @relation("UserA")
+  conversationsB    Conversation[]   @relation("UserB")
+}
+
+model RefreshToken {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+model OtpChallenge {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  phoneE164  String
+  codeHash   String
+  purpose    String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([phoneE164, purpose])
+}
+
+model KycDocument {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  docType     KycDocumentType
+  cloudinaryId String
+  ciphertext  String
+  iv          String
+  authTag     String
+  createdAt   DateTime        @default(now())
+
+  @@index([userId])
+}
+
+model LorryListing {
+  id               String             @id @default(cuid())
+  ownerId          String
+  owner            User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  photoUrl         String
+  numberPlate      String
+  lorryType        LorryType
+  capacityTons     Float
+  cityRegion       String
+  latitude         Float?
+  longitude        Float?
+  pricingMode      String
+  perKmRate        Float?
+  flatRouteRates   Json?
+  supportedRoutes  String[]
+  basePriceHint    Float?
+  availability     AvailabilityStatus @default(Available)
+  verifiedBlueBadge Boolean           @default(false)
+  kycReviewStatus  String             @default("none")
+  boostExpiresAt   DateTime?
+  subscriptionTier String             @default("free")
+  isActive         Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  bookingRequests BookingRequest[]
+
+  @@index([ownerId])
+  @@index([availability, isActive])
+  @@index([verifiedBlueBadge])
+}
+
+model BookingRequest {
+  id             String               @id @default(cuid())
+  listingId      String
+  listing        LorryListing         @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  seekerId       String
+  seeker         User                 @relation("SeekerBookings", fields: [seekerId], references: [id], onDelete: Cascade)
+  ownerId        String
+  owner          User                 @relation("OwnerBookings", fields: [ownerId], references: [id], onDelete: Cascade)
+  offeredPrice   Float
+  cargoType      String
+  cargoWeightTons Float
+  pickupDate     DateTime
+  originLabel    String
+  destinationLabel String
+  pickupLat      Float?
+  pickupLng      Float?
+  destLat        Float?
+  destLng        Float?
+  status         BookingRequestStatus @default(Pending)
+  roundCount     Int                  @default(1)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  rounds        NegotiationRound[]
+  conversation  Conversation?
+  contract      Contract?
+
+  @@index([listingId])
+  @@index([seekerId])
+  @@index([ownerId])
+  @@index([status])
+}
+
+model NegotiationRound {
+  id               String               @id @default(cuid())
+  bookingRequestId String
+  bookingRequest   BookingRequest       @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+  roundIndex       Int
+  actor            NegotiationActor
+  action           String
+  amount           Float?
+  message          String?
+  createdAt        DateTime             @default(now())
+
+  @@unique([bookingRequestId, roundIndex])
+  @@index([bookingRequestId])
+}
+
+model Contract {
+  id                 String         @id @default(cuid())
+  publicId           String         @unique @default(cuid())
+  bookingRequestId   String         @unique
+  bookingRequest     BookingRequest @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+  seekerId           String
+  seeker             User           @relation("SeekerContracts", fields: [seekerId], references: [id])
+  ownerId            String
+  owner              User           @relation("OwnerContracts", fields: [ownerId], references: [id])
+  agreedPrice        Float
+  depositPercent     Float          @default(30)
+  depositAmount      Float
+  balanceAmount      Float
+  cargoDescription   String
+  pickupAt           DateTime
+  deliveryEta        DateTime
+  cancellationTerms  String
+  pickupAddress      String
+  destinationAddress String
+  status             ContractStatus @default(Draft)
+  seekerOtpVerifiedAt DateTime?
+  ownerOtpVerifiedAt   DateTime?
+  pdfUrl             String?
+  signedAt           DateTime?
+  cancelledAt        DateTime?
+  cancelledByRole    UserRole?
+  ownerEnRouteAt     DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  escrowPayments EscrowPayment[]
+  trip           Trip?
+  disputes       Dispute[]
+
+  @@index([seekerId])
+  @@index([ownerId])
+  @@index([status])
+}
+
+model EscrowPayment {
+  id              String       @id @default(cuid())
+  contractId      String
+  contract        Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  flutterwaveRef  String?      @unique
+  amount          Float
+  kind            String
+  status          EscrowStatus @default(PendingDeposit)
+  meta            Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([contractId])
+}
+
+model Trip {
+  id                 String     @id @default(cuid())
+  contractId         String     @unique
+  contract           Contract   @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  seekerId           String
+  seeker             User       @relation("SeekerTrips", fields: [seekerId], references: [id])
+  ownerId            String
+  owner              User       @relation("OwnerTrips", fields: [ownerId], references: [id])
+  driverId           String?
+  driver             User?      @relation("DriverTrips", fields: [driverId], references: [id])
+  status             TripStatus @default(Planned)
+  liveSharingEnabled Boolean    @default(false)
+  lastLat            Float?
+  lastLng            Float?
+  lastEtaMinutes     Int?
+  pickupPhotoUrl     String?
+  ownerPickupConfirmedAt   DateTime?
+  seekerDeliveryConfirmedAt DateTime?
+  ownerDeliveryConfirmedAt  DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  milestones TripMilestone[]
+  disputes   Dispute[]
+
+  @@index([status])
+}
+
+model TripMilestone {
+  id        String        @id @default(cuid())
+  tripId    String
+  trip      Trip          @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  type      MilestoneType
+  note      String?
+  lat       Float?
+  lng       Float?
+  createdAt DateTime      @default(now())
+
+  @@index([tripId])
+}
+
+model Conversation {
+  id               String          @id @default(cuid())
+  bookingRequestId String          @unique
+  bookingRequest   BookingRequest  @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+  userAId          String
+  userA            User            @relation("UserA", fields: [userAId], references: [id])
+  userBId          String
+  userB            User            @relation("UserB", fields: [userBId], references: [id])
+  createdAt        DateTime        @default(now())
+
+  messages Message[]
+
+  @@index([userAId])
+  @@index([userBId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id])
+  body           String?
+  imageUrl       String?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+  @@index([senderId])
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  reviewerId  String
+  reviewer    User     @relation("Reviewer", fields: [reviewerId], references: [id])
+  revieweeId  String
+  reviewee    User     @relation("Reviewee", fields: [revieweeId], references: [id])
+  tripId      String?
+  stars       Int
+  punctuality Int?
+  handling    Int?
+  communication Int?
+  priceAccuracy Int?
+  reliability Int?
+  cargoAccuracy Int?
+  paymentPromptness Int?
+  comment     String?
+  createdAt   DateTime @default(now())
+
+  @@index([revieweeId])
+}
+
+model Dispute {
+  id           String        @id @default(cuid())
+  tripId       String
+  trip         Trip          @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  contractId   String
+  contract     Contract      @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  openedById   String
+  openedBy     User          @relation("DisputeOpener", fields: [openedById], references: [id])
+  category     String
+  description  String
+  status       DisputeStatus @default(Open)
+  resolution   String?
+  adminNotes   String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  evidence DisputeEvidence[]
+
+  @@index([tripId])
+  @@index([status])
+}
+
+model DisputeEvidence {
+  id         String  @id @default(cuid())
+  disputeId  String
+  dispute    Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  imageUrl   String?
+  note       String?
+  createdAt  DateTime @default(now())
+}
+
+model Subscription {
+  id             String               @id @default(cuid())
+  userId         String
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan           SubscriptionPlanType
+  status         SubscriptionStatus   @default(Active)
+  flutterwaveSubRef String?
+  renewsAt       DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([userId])
+  @@index([plan, status])
+}
+
+model BoostPurchase {
+  id             String   @id @default(cuid())
+  listingId      String
+  flutterwaveRef String?  @unique
+  amount         Float
+  currency       String
+  createdAt      DateTime @default(now())
+}
+
+model BadgePurchase {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flutterwaveRef String?  @unique
+  amount         Float
+  currency       String
+  validUntil     DateTime
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+}
+
+model RouteAlert {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  origin       String
+  destination  String
+  paused       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  readAt    DateTime?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AdminLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  admin     User     @relation("AdminActor", fields: [adminId], references: [id])
+  action    String
+  target    String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
+}
+
+model PromoCode {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  percentOff  Float?
+  freeDays    Int?
+  maxUses     Int?
+  usedCount   Int       @default(0)
+  validFrom   DateTime
+  validUntil  DateTime
+  createdAt   DateTime  @default(now())
+}
+
+model RevenueLedger {
+  id             String       @id @default(cuid())
+  source         String
+  amount         Float
+  currency       String
+  flutterwaveRef String?
+  recordedAt     DateTime     @default(now())
+}
+
+model PayoutRecord {
+  id          String       @id @default(cuid())
+  amount      Float
+  currency    String
+  paypalEmail String
+  status      PayoutStatus @default(Pending)
+  note        String?
+  createdAt   DateTime     @default(now())
+  completedAt DateTime?
+}
