@@ -98,8 +98,6 @@ FOOTER_SRC = """
 $VEL.CP = {default_travel_speed:.4f}
 LIN_REL {{Z 30}}
 WAIT SEC 0
-$OV_PRO = 10
-PTP HOME
 
 END
 """
@@ -422,10 +420,26 @@ class TunedTranspiler:
         
         for layer_idx, layer_points in enumerate(layers):
             start_index = 0
-            if layer_points and layer_points[0].raw_line and (layer_points[0].raw_line.startswith(';LAYER_CHANGE') or layer_points[0].raw_line.startswith(';Z:')):
-                k.append(f"; {layer_points[0].raw_line.strip()}\n")
+            if layer_points and layer_points[0].raw_line and (layer_points[0].raw_line.startswith(';LAYER_CHANGE')):
+                delay_type = WAAM_PARAMS.get('delay_type', 'time').lower()
+                if layer_idx != 1:  # Skip delay before first layer
+                    if delay_type == 'temp':
+                        k.append(";Waiting for TEMP_VAR to go high indicating temperature reached before next layer\n")
+                        k.append(f"WAIT SEC 30\n")  # Initial wait to allow temp to start rising 
+                        k.append("WAIT FOR TEMP_VAR\n")
+                        k.append(f"WAIT SEC 30\n")  # this wait will be removed, for now it just allows us to record the progress before each layer
+                    elif inter_delay and inter_delay > 0:
+                        k.append(f"WAIT SEC {inter_delay:.2f}\n")
+
+                    # Lower Z back to weld height after travel
+                    if travel_z_lift > 0:
+                        k.append(f"; Lower Z back to weld height\n")
+                        k.append(f"LIN_REL {{Z -{travel_z_lift:.1f}}}\n")
+                
+                k.append(f"; {layer_points[0].raw_line.strip()}\n") #layer change line
                 k.append("; Reset TEMP_VAR at the start of this layer\n")
                 k.append("TEMP_VAR = FALSE\n")
+                k.append(f"; Layer index: {layer_idx}\n")
                 start_index = 1
 
             segments = []
@@ -523,19 +537,19 @@ class TunedTranspiler:
                 # if inter_delay and inter_delay > 0:
                 #     k.append(f"WAIT SEC {inter_delay:.2f}\n")
                 #new inter-layer delay based on time or temp variable
-                delay_type = WAAM_PARAMS.get('delay_type', 'time').lower()
-                if delay_type == 'temp':
-                    k.append(";Waiting for TEMP_VAR to go high indicating temperature reached before next layer\n")
-                    k.append(f"WAIT SEC 30\n")  # Initial wait to allow temp to start rising 
-                    k.append("WAIT FOR TEMP_VAR\n")
-                    k.append(f"WAIT SEC 30\n")  # this wait will be removed, for now it just allows us to record the progress before each layer
-                elif inter_delay and inter_delay > 0:
-                    k.append(f"WAIT SEC {inter_delay:.2f}\n")
+                # delay_type = WAAM_PARAMS.get('delay_type', 'time').lower()
+                # if delay_type == 'temp':
+                #     k.append(";Waiting for TEMP_VAR to go high indicating temperature reached before next layer\n")
+                #     k.append(f"WAIT SEC 30\n")  # Initial wait to allow temp to start rising 
+                #     k.append("WAIT FOR TEMP_VAR\n")
+                #     k.append(f"WAIT SEC 30\n")  # this wait will be removed, for now it just allows us to record the progress before each layer
+                # elif inter_delay and inter_delay > 0:
+                #     k.append(f"WAIT SEC {inter_delay:.2f}\n")
 
                 # Lower Z back to weld height after travel
-                if travel_z_lift > 0:
-                    k.append(f"; Lower Z back to weld height\n")
-                    k.append(f"LIN_REL {{Z -{travel_z_lift:.1f}}}\n")
+                # if travel_z_lift > 0:
+                #     k.append(f"; Lower Z back to weld height\n")
+                #     k.append(f"LIN_REL {{Z -{travel_z_lift:.1f}}}\n")
 
                
 
