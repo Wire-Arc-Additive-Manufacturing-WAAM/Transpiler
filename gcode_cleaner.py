@@ -313,7 +313,7 @@ def main():
         output_file = sys.argv[2]
     else:
         base_name = os.path.splitext(input_file)[0]
-        output_file = base_name + "_cleaned.gcode"
+        output_file = base_name + "_cln.gcode"
     
 
     print(f"\nInput:  {input_file}")
@@ -340,7 +340,7 @@ def main():
 
     cleaner.print_statistics()
     
-    print(f"✓ Cleaned G-code saved to: {output_file}\n")
+    print(f" Cleaned G-code saved to: {output_file}\n")
 
 
 if __name__ == "__main__":

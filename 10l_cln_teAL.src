@@ -1,0 +1,424 @@
+DEF 10L_CLN_TEAL()
+;FOLD INI
+  ;FOLD BASISTECH INI
+    BAS (#INITMOV,0)
+  ;ENDFOLD (BASISTECH INI)
+  ;FOLD USER INI
+    ;WAAM-optimized initialization with weaving capability
+  ;ENDFOLD (USER INI)
+;ENDFOLD (INI)
+
+BASE_DATA[10] = {FRAME: X 270.73, Y -630.81, Z 710.35, A 179.93, B -0.22, C -1.44}
+TOOL_DATA[6] = {FRAME: X -14.67, Y -33.93, Z 286.30, A 0, B 0, C 0}
+$BASE = BASE_DATA[10]
+$TOOL = TOOL_DATA[6]
+
+BAS (#VEL_PTP,100)
+BAS (#ACC_PTP,100)
+BAS (#VEL_CP,0.0099)
+BAS (#ACC_CP,0.05)
+
+$VEL.CP = 0.0099
+$ACC.CP = 0.05
+$VEL.ORI1 = 90
+$VEL.ORI2 = 90
+$ACC.ORI1 = 500
+$ACC.ORI2 = 500
+$ORI_TYPE = #VAR
+$ADVANCE = 3
+$APO.CDIS = 0.25
+$OV_PRO = 100
+
+; Taught position mode - skipping HOME move
+; Robot should already be at desired starting position
+$OUT[1] = FALSE
+
+;===========
+; BEGIN WAAM PROCESS
+;===========
+
+; TAUGHT START POSITION MODE ENABLED
+; Robot will read current position at startup as substrate origin
+; X, Y and Z coordinates are offset
+; Jog robot to desired starting point before running this program
+
+; Read current robot position as taught starting point
+TAUGHT_START = $POS_ACT
+
+; First motion must be PTP to satisfy KUKA controller requirement
+; Moving to taught position (already there, but satisfies KSS01443)
+PTP TAUGHT_START
+
+; SAFETY DELAY - 7.5 seconds before starting weld process
+; This allows operator to verify position and move to safety
+WAIT SEC 7.5
+
+; First weld point offset from taught position: X=0.000, Y=0.000 (Z is absolute)
+
+; Welding strategy: ALTERNATING (A->B, B->A, A->B...)
+; Travel Z-lift: 10.0mm (prevents scratching welded beads)
+; Travel stabilization delay: 5.0s (wait after travel before Z lowers)
+; ;LAYER_CHANGE
+; Reset TEMP_VAR at the start of this layer
+TEMP_VAR = FALSE
+; Layer index: 1
+OFFSET_POS = {X 0.000, Y 0.000, Z 2.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = TRUE
+WAIT SEC 0.200
+OFFSET_POS = {X 95.500, Y 0.000, Z 2.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = FALSE
+WAIT SEC 0.200
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
+;Waiting for TEMP_VAR to go high indicating temperature reached before next layer
+WAIT SEC 30
+WAIT FOR TEMP_VAR
+WAIT SEC 30
+; Lower Z back to weld height
+LIN_REL {Z -10.0}
+; ;LAYER_CHANGE
+; Reset TEMP_VAR at the start of this layer
+TEMP_VAR = FALSE
+; Layer index: 3
+OFFSET_POS = {X 0.000, Y 0.000, Z 4.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = TRUE
+WAIT SEC 0.200
+OFFSET_POS = {X 95.500, Y 0.000, Z 4.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = FALSE
+WAIT SEC 0.200
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
+;Waiting for TEMP_VAR to go high indicating temperature reached before next layer
+WAIT SEC 30
+WAIT FOR TEMP_VAR
+WAIT SEC 30
+; Lower Z back to weld height
+LIN_REL {Z -10.0}
+; ;LAYER_CHANGE
+; Reset TEMP_VAR at the start of this layer
+TEMP_VAR = FALSE
+; Layer index: 5
+OFFSET_POS = {X 95.500, Y 0.000, Z 6.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = TRUE
+WAIT SEC 0.200
+OFFSET_POS = {X 0.000, Y 0.000, Z 6.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = FALSE
+WAIT SEC 0.200
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
+;Waiting for TEMP_VAR to go high indicating temperature reached before next layer
+WAIT SEC 30
+WAIT FOR TEMP_VAR
+WAIT SEC 30
+; Lower Z back to weld height
+LIN_REL {Z -10.0}
+; ;LAYER_CHANGE
+; Reset TEMP_VAR at the start of this layer
+TEMP_VAR = FALSE
+; Layer index: 7
+OFFSET_POS = {X 0.000, Y 0.000, Z 8.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = TRUE
+WAIT SEC 0.200
+OFFSET_POS = {X 95.500, Y 0.000, Z 8.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = FALSE
+WAIT SEC 0.200
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
+;Waiting for TEMP_VAR to go high indicating temperature reached before next layer
+WAIT SEC 30
+WAIT FOR TEMP_VAR
+WAIT SEC 30
+; Lower Z back to weld height
+LIN_REL {Z -10.0}
+; ;LAYER_CHANGE
+; Reset TEMP_VAR at the start of this layer
+TEMP_VAR = FALSE
+; Layer index: 9
+OFFSET_POS = {X 95.500, Y 0.000, Z 10.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = TRUE
+WAIT SEC 0.200
+OFFSET_POS = {X 0.000, Y 0.000, Z 10.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = FALSE
+WAIT SEC 0.200
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
+;Waiting for TEMP_VAR to go high indicating temperature reached before next layer
+WAIT SEC 30
+WAIT FOR TEMP_VAR
+WAIT SEC 30
+; Lower Z back to weld height
+LIN_REL {Z -10.0}
+; ;LAYER_CHANGE
+; Reset TEMP_VAR at the start of this layer
+TEMP_VAR = FALSE
+; Layer index: 11
+OFFSET_POS = {X 0.000, Y 0.000, Z 12.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = TRUE
+WAIT SEC 0.200
+OFFSET_POS = {X 95.500, Y 0.000, Z 12.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = FALSE
+WAIT SEC 0.200
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
+;Waiting for TEMP_VAR to go high indicating temperature reached before next layer
+WAIT SEC 30
+WAIT FOR TEMP_VAR
+WAIT SEC 30
+; Lower Z back to weld height
+LIN_REL {Z -10.0}
+; ;LAYER_CHANGE
+; Reset TEMP_VAR at the start of this layer
+TEMP_VAR = FALSE
+; Layer index: 13
+OFFSET_POS = {X 95.500, Y 0.000, Z 14.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = TRUE
+WAIT SEC 0.200
+OFFSET_POS = {X 0.000, Y 0.000, Z 14.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = FALSE
+WAIT SEC 0.200
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
+;Waiting for TEMP_VAR to go high indicating temperature reached before next layer
+WAIT SEC 30
+WAIT FOR TEMP_VAR
+WAIT SEC 30
+; Lower Z back to weld height
+LIN_REL {Z -10.0}
+; ;LAYER_CHANGE
+; Reset TEMP_VAR at the start of this layer
+TEMP_VAR = FALSE
+; Layer index: 15
+OFFSET_POS = {X 0.000, Y 0.000, Z 16.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = TRUE
+WAIT SEC 0.200
+OFFSET_POS = {X 95.500, Y 0.000, Z 16.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = FALSE
+WAIT SEC 0.200
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
+;Waiting for TEMP_VAR to go high indicating temperature reached before next layer
+WAIT SEC 30
+WAIT FOR TEMP_VAR
+WAIT SEC 30
+; Lower Z back to weld height
+LIN_REL {Z -10.0}
+; ;LAYER_CHANGE
+; Reset TEMP_VAR at the start of this layer
+TEMP_VAR = FALSE
+; Layer index: 17
+OFFSET_POS = {X 95.500, Y 0.000, Z 18.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = TRUE
+WAIT SEC 0.200
+OFFSET_POS = {X 0.000, Y 0.000, Z 18.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = FALSE
+WAIT SEC 0.200
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
+;Waiting for TEMP_VAR to go high indicating temperature reached before next layer
+WAIT SEC 30
+WAIT FOR TEMP_VAR
+WAIT SEC 30
+; Lower Z back to weld height
+LIN_REL {Z -10.0}
+; ;LAYER_CHANGE
+; Reset TEMP_VAR at the start of this layer
+TEMP_VAR = FALSE
+; Layer index: 19
+OFFSET_POS = {X 0.000, Y 0.000, Z 20.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = TRUE
+WAIT SEC 0.200
+OFFSET_POS = {X 95.500, Y 0.000, Z 20.000, A 0, B 0, C 0}
+TARGET_POS = TAUGHT_START
+TARGET_POS.X = TAUGHT_START.X + OFFSET_POS.X
+TARGET_POS.Y = TAUGHT_START.Y + OFFSET_POS.Y
+TARGET_POS.Z = TAUGHT_START.Z + OFFSET_POS.Z
+TARGET_POS.A = TAUGHT_START.A
+TARGET_POS.B = TAUGHT_START.B
+TARGET_POS.C = TAUGHT_START.C
+LIN TARGET_POS C_DIS
+$OUT[1] = FALSE
+WAIT SEC 0.200
+; Lift Z by 10.0mm to avoid scratching welded bead
+LIN_REL {Z 10.0}
+; Stabilization delay - ensures travel motion completes before Z lowers
+WAIT SEC 5.0
+
+;===========
+; WAAM PROCESS COMPLETE
+;===========
+
+$VEL.CP = 0.0099
+LIN_REL {Z 30}
+WAIT SEC 0
+
+END
