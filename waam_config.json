@@ -14,7 +14,7 @@
         "safety_delay_seconds": 7.5
     },
     "waam_params": {
-        "delay_type": "time",  
+        "delay_type": "temp",  
         "welding_strategy": "alternating",
         "travel_z_lift": 10,
         "travel_stabilization_delay": 5.0,
@@ -36,7 +36,7 @@
         "retraction_max_distance": 10,
         "apo_cdis": 0.25,
         "auto_prusa_origin": false,
-        "weaving_enabled": true,
+        "weaving_enabled": false,
         "weaving_amplitude": 2.25,
         "weaving_frequency": 0.17, 
         "weaving_points_per_cycle": 4
