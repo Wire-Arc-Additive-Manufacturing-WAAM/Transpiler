@@ -1,84 +1,51 @@
-# G-code to KRL Workflow Instructions
+# Pyrometer RS485 Quick Start
 
-This guide explains the full workflow for transforming standard G-code into KUKA KRL files, cleaning it, simulating the robot toolpath, and preparing files for upload to your KUKA controller.
+This project reads a WAAM pyrometer over USB-to-RS485 using Modbus RTU.
 
----
+For full details, see `WAAM_pyrometer_setup.md`.
 
-## **1. Clean Your Raw G-code**
+## Wiring Schematic
 
-Run the G-code cleaner to remove duplicate points and zero distance points:
+```text
+                 24V DC SUPPLY
+             +--------------------+
+             |                    |
+      +24V --+----[0.5A fuse]-----+------------------> Pyrometer +V
+       0V ---+---------------------+------------------> Pyrometer Black (0V/Common -)
+             |
+             |                         USB
+             |                    +-------------+
+             +--------------------| Raspberry Pi|
+                                  +-------------+
+                                         |
+                                   USB-to-RS485
+                                 +----------------+
+                                 |  A(+)   B(-)   |
+                                 |   |      |     |
+                                 +---|------|-----+
+                                     |      |
+                                     |      +------------------> Pyrometer Orange (B-)
+                                     +-------------------------> Pyrometer Blue (A+)
+
+                              [120 ohm termination resistor]
+                               between A(+) and B(-) at bus end
+                               (usually near pyrometer)
+```
+
+## Connection Notes
+
+- Blue wire is RS485 `A+`.
+- Orange wire is RS485 `B-`.
+- Black wire is 0V/common negative.
+- Connect USB-RS485 signal ground/common to pyrometer black/common for a stable reference.
+- Use one 120 ohm termination across A/B at the end of the RS485 line.
+
+## Sensor Comms Test
+
+After wiring and power-up, run:
 
 ```bash
-python ./gcode_cleaner.py your_gcode.gcode
+python3 pyrometer_comm_test.py --port /dev/ttyUSB0
 ```
 
-This will generate:
-
-```
-your_gcode_cleaned.gcode
-```
-
----
-
-## **2. Transpile Cleaned G-code to KRL**
-
-Convert the cleaned G-code into KUKA KRL `.src` and `.dat` program files:
-
-```bash
-python ./g_k_transpiler_clean.py your_gcode_cleaned.gcode
-```
-
-This produces:
-
-```
-your_gcode_cleaned.src
-your_gcode_cleaned.dat
-```
-
-Upload both files to the robot controller (KRC4/KRC5) under `/R1/Program/`.
-
----
-
-## **3. Visualize the Toolpath **
-
-Generate an MP4 video showing the TCP motion from the generated KRL:
-
-```bash
-python ./visualize_toolpath.py your_gcode_cleaned.src
-```
-
-Use this to verify that the robot movement is smooth and collision-free.
-
----
-
-## **Summary Workflow**
-
-1. **Clean G-code** → `your_gcode_cleaned.gcode`
-2. **Transpile to KRL** → `your_gcode_cleaned.src` + `your_gcode_cleaned.dat`
-3. **Visualize Path** → `toolpath_visualization.mp4`
-4. **Upload `.src` and `.dat` to robot** and run program.
-
----
-
-## **4. Toolpath Visualization (GIF)**
-
-You can embed the generated GIF preview directly in your README:
-
-```markdown
-![Toolpath Visualization](onelayercirclevideoonline-video-cutter.com-ezgif.com-video-to-gif-converter.gif)
-```
-
-Make sure the GIF is placed in the same directory as the README or update the path accordingly.
-
----
-
-
-## **Config Bundle**
-The Prusa slicer settings changed and the reasons in order to tailor them for WAAM are discussed in the confluence WAAM space below:
-https://waam.atlassian.net/wiki/spaces/WAAM/pages/142639105/Transpiler+Trajectory+Motion+Planning
-
-Changes added to initial config bundle v1.0 to accommodate infill during deposition:
-
-![Prusa Slicer WAAM Config Bundle Supporting Infill](screenshot_prusaslicer_config.png)
-
-
+If it fails, first try swapping A/B lines and re-run the test.
